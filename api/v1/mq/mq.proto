@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package mq.v1;
+
+option go_package = "github.com/sreeram77/gpu-tel/api/v1/mq;mq";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Message represents a single message in the queue
+message Message {
+  string id = 1;                  // Unique message ID
+  string topic = 2;               // Topic the message belongs to
+  bytes payload = 3;              // Message payload
+  map<string, string> metadata = 4; // Message metadata (headers, etc.)
+  google.protobuf.Timestamp timestamp = 5; // Message creation timestamp
+  int32 priority = 6;             // Message priority (higher is more important)
+  int64 sequence = 7;             // Message sequence number
+}
+
+// PublishRequest is used to publish messages to the queue
+message PublishRequest {
+  Message message = 1;            // The message to publish
+  bool wait_for_ack = 2;          // Whether to wait for acknowledgment
+  int32 ack_timeout_seconds = 3;  // Timeout for waiting for acknowledgment
+}
+
+// PublishResponse is the response to a publish request
+message PublishResponse {
+  string message_id = 1;          // The ID of the published message
+  bool success = 2;               // Whether the publish was successful
+  string error = 3;               // Error message if publish failed
+  google.protobuf.Timestamp timestamp = 4; // Server timestamp
+}
+
+// SubscribeRequest is used to subscribe to messages from the queue
+message SubscribeRequest {
+  string topic = 1;               // Topic to subscribe to
+  string consumer_id = 2;         // Unique consumer ID
+  int32 batch_size = 3;           // Maximum number of messages to receive in a batch
+  int32 max_in_flight = 4;        // Maximum number of unacknowledged messages
+  int32 ack_timeout_seconds = 5;  // Timeout for message acknowledgment
+  map<string, string> filter = 6; // Optional filter criteria
+}
+
+// AcknowledgeRequest is used to acknowledge message processing
+message AcknowledgeRequest {
+  string message_id = 1;          // ID of the message to acknowledge
+  string consumer_id = 2;         // ID of the consumer acknowledging the message
+  bool success = 3;               // Whether processing was successful
+  string error = 4;               // Error message if processing failed
+}
+
+// SubscribeResponse contains messages from the queue
+message SubscribeResponse {
+  repeated Message messages = 1;  // Batch of messages
+  bool heartbeat = 2;              // Whether this is a heartbeat message
+}
+
+// HealthCheckRequest is a health check request
+message HealthCheckRequest {
+  string service = 1;             // Service name to check
+}
+
+// HealthCheckResponse is the health check response
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;       // Service status
+  string message = 2;             // Status message
+}
+
+// PublisherService defines the publisher service for message queue
+service PublisherService {
+  // Publish publishes messages to the queue (bidirectional streaming)
+  // Client can stream multiple publish requests and receive acknowledgments
+  rpc Publish(stream PublishRequest) returns (stream PublishResponse) {}
+  
+  // HealthCheck checks the health of the publisher service
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse) {}
+}
+
+// SubscriberService defines the subscriber service for message queue
+service SubscriberService {
+  // Subscribe subscribes to messages from the queue (bidirectional streaming)
+  // Client can manage subscription and receive message batches
+  rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse) {}
+  
+  // Acknowledge acknowledges message processing (bidirectional streaming)
+  // Client can acknowledge processed messages and receive confirmations
+  rpc Acknowledge(stream AcknowledgeRequest) returns (google.protobuf.Empty) {}
+  
+  // HealthCheck checks the health of the subscriber service
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse) {}
+}
