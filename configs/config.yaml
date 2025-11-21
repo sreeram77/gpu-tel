@@ -1,0 +1,53 @@
+# Application configuration
+app:
+  name: gpu-tel
+  env: development
+  version: 0.1.0
+
+# Server configurations
+server:
+  http:
+    port: 8080
+    read_timeout: 30s
+    write_timeout: 30s
+  grpc:
+    port: 50051
+    timeout: 10s
+
+# Message Queue configuration
+message_queue:
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+  vhost: /
+  exchange: gpu_telemetry
+  queue: telemetry
+  consumer: telemetry_consumer
+  prefetch_count: 10
+  prefetch_size: 0
+  requeue_on_error: true
+
+# Storage configuration
+storage:
+  type: memory # Can be 'memory' or 'postgres'
+  postgres:
+    host: localhost
+    port: 5432
+    user: postgres
+    password: postgres
+    dbname: gputel
+    sslmode: disable
+
+# Logging configuration
+log:
+  level: debug
+  format: json
+  file: logs/app.log
+
+# Telemetry configuration
+telemetry:
+  stream_interval: 5s
+  max_retries: 3
+  batch_size: 100
+  max_queue_size: 1000
