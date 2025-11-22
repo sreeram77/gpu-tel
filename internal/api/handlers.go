@@ -3,31 +3,36 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GPU represents a GPU device
+// GPU represents a GPU in the system
 type GPU struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Model         string    `json:"model"`
-	MemoryMB      int       `json:"memory_mb,omitempty"`
-	DriverVersion string    `json:"driver_version,omitempty"`
-	FirstSeen     time.Time `json:"first_seen,omitempty"`
+	UUID      string    `json:"uuid"`
+	GPUIndex  string    `json:"gpu_id"`
+	Device    string    `json:"device"`
+	ModelName string    `json:"model_name"`
+	Hostname  string    `json:"hostname"`
+	FirstSeen time.Time `json:"first_seen"`
 }
 
-// Telemetry represents a single telemetry data point
+// Telemetry represents a telemetry data point for a GPU
 type Telemetry struct {
-	Timestamp       time.Time `json:	imestamp"`
-	GpuID           string    `json:"gpu_id"`
-	GpuUtilization  float64   `json:"gpu_utilization"`
-	MemoryUsedMB    float64   `json:"memory_used_mb"`
-	MemoryTotalMB   float64   `json:"memory_total_mb"`
-	TemperatureC    float64   `json:"temperature_c"`
-	PowerUsageW     float64   `json:"power_usage_w"`
-	FanSpeedPercent float64   `json:"fan_speed_percent"`
+	Timestamp   time.Time `json:"timestamp"`
+	MetricName  string    `json:"metric_name"`
+	GPUIndex    string    `json:"gpu_id"`
+	Device      string    `json:"device"`
+	UUID        string    `json:"uuid"`
+	ModelName   string    `json:"model_name"`
+	Hostname    string    `json:"hostname"`
+	Container   string    `json:"container,omitempty"`
+	Pod         string    `json:"pod,omitempty"`
+	Namespace   string    `json:"namespace,omitempty"`
+	Value       float64   `json:"value"`
+	LabelsRaw   string    `json:"labels_raw,omitempty"`
 }
 
 // ErrorResponse represents an error response
@@ -37,30 +42,40 @@ type ErrorResponse struct {
 	Details string `json:"details,omitempty"`
 }
 
-// listGPUs handles GET /api/v1/gpus
+// listGPUs handles GET /gpus
 func (s *Server) listGPUs(c *gin.Context) {
-	// Get list of GPU IDs from storage
 	gpuIDs, err := s.storage.ListGPUs(c.Request.Context())
 	if err != nil {
 		sendError(c, http.StatusInternalServerError, "Failed to list GPUs", err.Error())
 		return
 	}
 
-	// Convert to response format
 	gpus := make([]GPU, 0, len(gpuIDs))
 	for _, id := range gpuIDs {
-		// For now, we only have the ID. In a real implementation, we might want to store
-		// more metadata about each GPU in the storage layer.
+		// Format: "{hostname} - GPU {id} ({model}) - {uuid}"
+		parts := strings.SplitN(id, " - ", 4)
+		if len(parts) != 4 {
+			continue
+		}
+		
+		hostname := parts[0]
+		gpuID := strings.TrimPrefix(parts[1], "GPU ")
+		modelName := strings.TrimSuffix(strings.TrimPrefix(parts[2], "("), ")")
+		uuid := parts[3]
+
 		gpus = append(gpus, GPU{
-			ID:        id,
-			FirstSeen: time.Now().Add(-24 * time.Hour), // This would come from storage in a real implementation
+			UUID:      uuid,
+			GPUIndex:  gpuID,
+			ModelName: modelName,
+			Hostname:  hostname,
+			FirstSeen: time.Now().Add(-24 * time.Hour),
 		})
 	}
 
 	c.JSON(http.StatusOK, gpus)
 }
 
-// getGPUTelemetry handles GET /api/v1/gpus/:id/telemetry
+// getGPUTelemetry handles GET /gpus/:id/telemetry
 func (s *Server) getGPUTelemetry(c *gin.Context) {
 	gpuID := c.Param("id")
 	if gpuID == "" {
@@ -69,52 +84,40 @@ func (s *Server) getGPUTelemetry(c *gin.Context) {
 	}
 
 	// Parse query parameters
-	startTime, err := parseTimeParam(c.Query("start_time"))
+	startTime, endTime, err := parseTimeRange(c)
 	if err != nil {
-		sendError(c, http.StatusBadRequest, "Invalid start_time format", err.Error())
-		return
-	}
-
-	endTime, err := parseTimeParam(c.Query("end_time"))
-	if err != nil {
-		sendError(c, http.StatusBadRequest, "Invalid end_time format", err.Error())
+		sendError(c, http.StatusBadRequest, "Invalid time range", err.Error())
 		return
 	}
 
 	// Get telemetry data from storage
-	telemetry, err := s.getTelemetryData(gpuID, startTime, endTime)
+	telemetryData, err := s.storage.GetGPUTelemetry(c.Request.Context(), gpuID, startTime, endTime)
 	if err != nil {
-		sendError(c, http.StatusInternalServerError, "Failed to get telemetry data", err.Error())
+		s.logger.Error().Err(err).Str("gpu_id", gpuID).Msg("Failed to get GPU telemetry")
+		sendError(c, http.StatusInternalServerError, "Failed to get GPU telemetry", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, telemetry)
-}
-
-// getTelemetryData retrieves telemetry data from storage
-func (s *Server) getTelemetryData(gpuID string, startTime, endTime *time.Time) ([]Telemetry, error) {
-	// Get telemetry data from storage
-	telemetryData, err := s.storage.GetGPUTelemetry(context.Background(), gpuID, *startTime, *endTime)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to response format
+	// Convert to API response format
 	result := make([]Telemetry, 0, len(telemetryData))
 	for _, t := range telemetryData {
 		result = append(result, Telemetry{
-			Timestamp:       t.Timestamp,
-			GpuID:           t.ID,
-			GpuUtilization:  t.GPULoad,
-			MemoryUsedMB:    float64(t.MemoryUsed) / (1024 * 1024),  // Convert bytes to MB
-			MemoryTotalMB:   float64(t.MemoryTotal) / (1024 * 1024), // Convert bytes to MB
-			TemperatureC:    t.GPUTemperature,
-			PowerUsageW:     t.PowerDraw,
-			FanSpeedPercent: t.FanSpeed,
+			Timestamp:   t.Timestamp,
+			MetricName:  t.MetricName,
+			GPUIndex:    t.GPUIndex,
+			Device:      t.Device,
+			UUID:        t.UUID,
+			ModelName:   t.ModelName,
+			Hostname:    t.Hostname,
+			Container:   t.Container,
+			Pod:         t.Pod,
+			Namespace:   t.Namespace,
+			Value:       t.Value,
+			LabelsRaw:   t.LabelsRaw,
 		})
 	}
 
-	return result, nil
+	c.JSON(http.StatusOK, result)
 }
 
 // parseTimeParam parses a time parameter from a string
