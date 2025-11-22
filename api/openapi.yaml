@@ -1,0 +1,203 @@
+openapi: 3.0.3
+info:
+  title: GPU Telemetry API
+  description: API for accessing GPU telemetry data
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/sreeram77/gpu-tel
+
+servers:
+  - url: /api/v1
+    description: Main API server
+
+paths:
+  /gpus:
+    get:
+      summary: List all GPUs
+      description: Returns a list of all GPUs for which telemetry data is available
+      operationId: listGpus
+      tags:
+        - GPUs
+      responses:
+        '200':
+          description: A list of GPUs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GPU'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /gpus/{id}/telemetry:
+    get:
+      summary: Get telemetry for a GPU
+      description: Returns telemetry data for a specific GPU, optionally filtered by time range
+      operationId: getGpuTelemetry
+      tags:
+        - Telemetry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the GPU to get telemetry for
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          required: false
+          description: Start time for filtering telemetry (inclusive, RFC3339 format)
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: false
+          description: End time for filtering telemetry (inclusive, RFC3339 format)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Telemetry data for the specified GPU
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Telemetry'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: GPU not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    GPU:
+      type: object
+      required:
+        - id
+        - name
+        - model
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the GPU
+          example: "gpu-123456"
+        name:
+          type: string
+          description: Display name of the GPU
+          example: "NVIDIA A100"
+        model:
+          type: string
+          description: GPU model identifier
+          example: "NVIDIA A100-SXM4-40GB"
+        memory_mb:
+          type: integer
+          description: Total GPU memory in MB
+          example: 40960
+        driver_version:
+          type: string
+          description: GPU driver version
+          example: "470.57.02"
+        first_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the GPU was first registered
+          example: "2023-01-01T00:00:00Z"
+
+    Telemetry:
+      type: object
+      required:
+        - timestamp
+        - gpu_id
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the telemetry reading
+          example: "2023-01-01T12:00:00Z"
+        gpu_id:
+          type: string
+          description: ID of the GPU this telemetry is for
+          example: "gpu-123456"
+        gpu_utilization:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: GPU utilization percentage
+          example: 42.5
+        memory_used_mb:
+          type: number
+          format: float
+          description: Used GPU memory in MB
+          example: 1024.5
+        memory_total_mb:
+          type: number
+          format: float
+          description: Total GPU memory in MB
+          example: 40960
+        temperature_c:
+          type: number
+          format: float
+          description: GPU temperature in Celsius
+          example: 65.5
+        power_usage_w:
+          type: number
+          format: float
+          description: Power usage in Watts
+          example: 250.5
+        fan_speed_percent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Fan speed as a percentage
+          example: 75.0
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: HTTP status code
+          example: 404
+        message:
+          type: string
+          description: Error message
+          example: "GPU not found"
+        details:
+          type: string
+          description: Additional error details
+          example: "No GPU found with ID 'gpu-123456'"
+
+tags:
+  - name: GPUs
+    description: Operations related to GPUs
+  - name: Telemetry
+    description: Operations related to GPU telemetry data

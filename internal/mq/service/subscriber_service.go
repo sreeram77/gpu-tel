@@ -100,89 +100,6 @@ func (s *SubscriberService) Subscribe(stream mqpb.SubscriberService_SubscribeSer
 	deliverTicker := time.NewTicker(100 * time.Millisecond)
 	defer deliverTicker.Stop()
 
-	// Channel to track in-flight messages
-	inFlight := make(chan struct{}, maxInFlight)
-
-	// Channel to signal when to deliver the next batch
-	deliverChan := make(chan struct{}, 1)
-	defer close(deliverChan)
-
-	// Initial delivery
-	deliverChan <- struct{}{}
-
-	// Function to deliver a batch of messages
-	deliverBatch := func() {
-		// Skip if we're already at max in-flight
-		if len(inFlight) >= maxInFlight {
-			return
-		}
-
-		// Get a batch of messages
-		messages, err := s.messageStore.GetMessages(stream.Context(), req.Topic, consumerID, batchSize)
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get messages")
-			return
-		}
-
-		if len(messages) == 0 {
-			// Send a heartbeat if no messages
-			if err := stream.Send(&mqpb.SubscribeResponse{
-				Heartbeat: true,
-			}); err != nil {
-				logger.Error().Err(err).Msg("Failed to send heartbeat")
-			}
-			return
-		}
-
-		// Add to in-flight count
-		for range messages {
-			select {
-			case inFlight <- struct{}{}:
-			default:
-				// Shouldn't happen due to the check at the start
-				logger.Warn().Msg("In-flight queue full, skipping message delivery")
-				return
-			}
-		}
-
-		// Send the batch
-		resp := &mqpb.SubscribeResponse{
-			Messages:  messages,
-			Heartbeat: false,
-		}
-
-		if err := stream.Send(resp); err != nil {
-			logger.Error().Err(err).Msg("Failed to send messages")
-			// Remove from in-flight count on error
-			for range messages {
-				<-inFlight
-			}
-		}
-	}
-
-	// Handle incoming control messages in a goroutine
-	go func() {
-		for {
-			_, err := stream.Recv()
-			if err == io.EOF {
-				// Client closed the stream
-				return
-			}
-			if err != nil {
-				logger.Error().Err(err).Msg("Error receiving from stream")
-				return
-			}
-
-			// Handle control messages if needed
-			// For now, just trigger a new batch delivery
-			select {
-			case deliverChan <- struct{}{}:
-			default:
-				// Skip if we already have a pending delivery
-			}
-		}
-	}()
-
 	// Main loop for message delivery
 	for {
 		select {
@@ -196,18 +113,6 @@ func (s *SubscriberService) Subscribe(stream mqpb.SubscriberService_SubscribeSer
 		case <-stream.Context().Done():
 			// Client disconnected
 			return nil
-
-		case <-deliverChan:
-			// Deliver a batch of messages
-			deliverBatch()
-
-		case <-deliverTicker.C:
-			// Periodically check for new messages
-			select {
-			case deliverChan <- struct{}{}:
-			default:
-				// Skip if we already have a pending delivery
-			}
 		}
 	}
 }
