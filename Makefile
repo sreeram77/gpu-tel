@@ -13,11 +13,19 @@ GOTOOL=$(GOCMD) tool
 MQ_SERVICE_BIN=mq-service
 STREAMER_BIN=telemetry-streamer
 COLLECTOR_BIN=telemetry-collector
-API_GATEWAY_BIN=api-gateway
+API_SERVER_BIN=api-server
 
 # Directories
 BIN_DIR=bin
 PROTO_DIR=api/v1/mq
+API_DOCS_DIR=api
+
+# Build flags
+LDFLAGS=-ldflags="-s -w"
+GOBUILD_CMD=$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$@ ./cmd/$@
+
+# Default port for API server
+API_PORT?=8080
 
 # Protobuf
 PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
@@ -35,16 +43,21 @@ all: build
 ## help: Display this help message
 help:
 	@echo "\nAvailable targets:"
-	@echo "  all         Build all binaries (default)"
-	@echo "  build       Build all binaries"
-	@echo "  proto       Generate protobuf code"
-	@echo "  test        Run tests"
-	@echo "  clean       Remove build artifacts"
-	@echo "  deps        Install dependencies"
-	@echo "  run-mq      Run message queue service"
-	@echo "  run-streamer Run telemetry streamer"
-	@echo "  run-collector Run telemetry collector"
-	@echo "  run-api     Run API gateway"
+	@echo "  all              Build all binaries (default)"
+	@echo "  build            Build all binaries"
+	@echo "  build-api        Build API server"
+	@echo "  run-api          Run API server (port can be set with API_PORT, default: 8080)"
+	@echo "  proto            Generate protobuf code"
+	@echo "  test             Run tests"
+	@echo "  test-api         Run API tests"
+	@echo "  clean            Remove build artifacts"
+	@echo "  deps             Install dependencies"
+	@echo "  deps-api         Install API server dependencies"
+	@echo "  lint             Run linters"
+	@echo "  format           Format source code"
+	@echo "  run-mq           Run message queue service"
+	@echo "  run-streamer     Run telemetry streamer"
+	@echo "  run-collector    Run telemetry collector"
 
 # Install protoc and plugins if not present
 check-protoc:
@@ -75,32 +88,57 @@ proto: check-protoc check-protoc-go check-protoc-go-grpc
 	       --go-grpc_out=. --go-grpc_opt=paths=source_relative \
 	       $(PROTO_DIR)/mq.proto
 
-# Build all binaries
-build: build-mq build-streamer build-collector build-api
+# Build targets
+build: $(BIN_DIR) $(MQ_SERVICE_BIN) $(STREAMER_BIN) $(COLLECTOR_BIN) $(API_SERVER_BIN)
 
-# Build message queue service
-build-mq:
-	@echo "Building message queue service..."
+$(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
-	$(GOBUILD) -o $(BIN_DIR)/$(MQ_SERVICE_BIN) ./cmd/mqservice
 
-# Build telemetry streamer
-build-streamer:
-	@echo "Building telemetry streamer..."
-	@mkdir -p $(BIN_DIR)
-	$(GOBUILD) -o $(BIN_DIR)/$(STREAMER_BIN) ./cmd/streamer
+$(MQ_SERVICE_BIN):
+	@echo "Building $@..."
+	@$(GOBUILD_CMD)
 
-# Build telemetry collector
-build-collector:
-	@echo "Building telemetry collector..."
-	@mkdir -p $(BIN_DIR)
-	$(GOBUILD) -o $(BIN_DIR)/$(COLLECTOR_BIN) ./cmd/collector
+$(STREAMER_BIN):
+	@echo "Building $@..."
+	@$(GOBUILD_CMD)
 
-# Build API gateway
-build-api:
-	@echo "Building API gateway..."
-	@mkdir -p $(BIN_DIR)
-	$(GOBUILD) -o $(BIN_DIR)/$(API_GATEWAY_BIN) ./cmd/api-gateway
+$(COLLECTOR_BIN):
+	@echo "Building $@..."
+	@$(GOBUILD_CMD)
+
+$(API_SERVER_BIN):
+	@echo "Building $@..."
+	@$(GOBUILD_CMD)
+
+## API Server
+deps-api:
+	@echo "Installing API server dependencies..."
+	@$(GOGET) -u github.com/gin-gonic/gin
+	@$(GOGET) -u github.com/rs/zerolog
+
+build-api: $(BIN_DIR) $(API_SERVER_BIN)
+
+run-api: build-api
+	@echo "Starting API server on port $(API_PORT)..."
+	@API_PORT=$(API_PORT) $(BIN_DIR)/$(API_SERVER_BIN)
+
+test-api:
+	@echo "Running API tests..."
+	@cd internal/api && $(GOTEST) -v -coverprofile=coverage.out ./...
+	@$(GOTOOL) cover -html=internal/api/coverage.out -o internal/api/coverage.html
+
+## Code quality
+lint:
+	@echo "Running linters..."
+	@$(GOGET) -u golang.org/x/lint/golint
+	@golint ./...
+	@$(GOGET) -u honnef.co/go/tools/cmd/staticcheck
+	@staticcheck ./...
+
+format:
+	@echo "Formatting code..."
+	@$(GOCMD) fmt ./...
+	@$(GOCMD) vet ./...
 
 # Run tests
 test:
@@ -139,7 +177,7 @@ run-collector: build-collector
 # Run API gateway
 run-api: build-api
 	@echo "Starting API gateway..."
-	./$(BIN_DIR)/$(API_GATEWAY_BIN)
+	./$(BIN_DIR)/$(API_SERVER_BIN)
 
 # Generate mocks for testing
 mock:
