@@ -9,12 +9,30 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	App         AppConfig         `mapstructure:"app"`
-	Server      ServerConfig      `mapstructure:"server"`
+	App          AppConfig          `mapstructure:"app"`
+	Server       ServerConfig       `mapstructure:"server"`
 	MessageQueue MessageQueueConfig `mapstructure:"message_queue"`
-	Storage     StorageConfig     `mapstructure:"storage"`
-	Log         LogConfig         `mapstructure:"log"`
-	Telemetry   TelemetryConfig   `mapstructure:"telemetry"`
+	Storage      StorageConfig      `mapstructure:"storage"`
+	Log          LogConfig          `mapstructure:"log"`
+	Telemetry    TelemetryConfig    `mapstructure:"telemetry"`
+	Database     DatabaseConfig     `mapstructure:"database"`
+	Collector    CollectorConfig    `mapstructure:"collector"`
+}
+
+type CollectorConfig struct {
+	BatchSize         int `mapstructure:"batch_size"`
+	MaxInFlight       int `mapstructure:"max_in_flight"`
+	AckTimeoutSeconds int `mapstructure:"ack_timeout_seconds"`
+	WorkerCount       int `mapstructure:"worker_count"`
+}
+
+type DatabaseConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"dbname"`
+	SSLMode  string `mapstructure:"sslmode"`
 }
 
 // AppConfig holds application configuration
@@ -32,8 +50,8 @@ type ServerConfig struct {
 
 // HTTPServerConfig holds HTTP server configuration
 type HTTPServerConfig struct {
-	Port        int           `mapstructure:"port"`
-	ReadTimeout time.Duration `mapstructure:"read_timeout"`
+	Port         int           `mapstructure:"port"`
+	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 }
 
@@ -45,17 +63,7 @@ type GRPCServerConfig struct {
 
 // MessageQueueConfig holds message queue configuration
 type MessageQueueConfig struct {
-	Host            string `mapstructure:"host"`
-	Port            int    `mapstructure:"port"`
-	Username        string `mapstructure:"username"`
-	Password        string `mapstructure:"password"`
-	VHost           string `mapstructure:"vhost"`
-	Exchange        string `mapstructure:"exchange"`
-	Queue           string `mapstructure:"queue"`
-	Consumer        string `mapstructure:"consumer"`
-	PrefetchCount   int    `mapstructure:"prefetch_count"`
-	PrefetchSize    int    `mapstructure:"prefetch_size"`
-	RequeueOnError  bool   `mapstructure:"requeue_on_error"`
+	Address string `mapstructure:"address"`
 }
 
 // StorageConfig holds storage configuration
@@ -116,16 +124,4 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return &cfg, nil
-}
-
-// GetDSN returns the PostgreSQL DSN string
-func (p *PostgresConfig) GetDSN() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		p.Host, p.Port, p.User, p.Password, p.DBName, p.SSLMode)
-}
-
-// GetMessageQueueURL returns the message queue connection URL
-func (m *MessageQueueConfig) GetMessageQueueURL() string {
-	return fmt.Sprintf("amqp://%s:%s@%s:%d/%s",
-		m.Username, m.Password, m.Host, m.Port, m.VHost)
 }

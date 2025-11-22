@@ -42,22 +42,22 @@ type MessageStore interface {
 // InMemoryStore is an in-memory implementation of MessageStore
 type InMemoryStore struct {
 	sync.RWMutex
-	messages      map[string]*mq.Message
-	topics        map[string]map[string]bool // topic -> message IDs
-	consumers     map[string]map[string]bool // consumer ID -> message IDs
-	ackTracker    map[string]string          // message ID -> consumer ID
-	subscribers   map[string]map[chan *mq.Message]bool // topic -> subscribers
-	subscriberInfo map[string]Subscriber // consumer ID -> Subscriber
+	messages       map[string]*mq.Message
+	topics         map[string]map[string]bool           // topic -> message IDs
+	consumers      map[string]map[string]bool           // consumer ID -> message IDs
+	ackTracker     map[string]string                    // message ID -> consumer ID
+	subscribers    map[string]map[chan *mq.Message]bool // topic -> subscribers
+	subscriberInfo map[string]Subscriber                // consumer ID -> Subscriber
 }
 
 // NewInMemoryStore creates a new in-memory message store
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		messages:      make(map[string]*mq.Message),
-		topics:        make(map[string]map[string]bool),
-		consumers:     make(map[string]map[string]bool),
-		ackTracker:    make(map[string]string),
-		subscribers:   make(map[string]map[chan *mq.Message]bool),
+		messages:       make(map[string]*mq.Message),
+		topics:         make(map[string]map[string]bool),
+		consumers:      make(map[string]map[string]bool),
+		ackTracker:     make(map[string]string),
+		subscribers:    make(map[string]map[chan *mq.Message]bool),
 		subscriberInfo: make(map[string]Subscriber),
 	}
 }
@@ -185,8 +185,8 @@ func (s *InMemoryStore) RemoveSubscriber(ctx context.Context, consumerID, topic 
 
 // GetMessages gets a batch of messages for a subscriber
 func (s *InMemoryStore) GetMessages(ctx context.Context, topic, consumerID string, batchSize int) ([]*mq.Message, error) {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	var messages []*mq.Message
 	count := 0

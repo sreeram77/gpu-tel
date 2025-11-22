@@ -88,6 +88,12 @@ func (s *SubscriberService) Subscribe(stream mqpb.SubscriberService_SubscribeSer
 	}
 	defer s.messageStore.RemoveSubscriber(stream.Context(), consumerID, req.Topic)
 
+	messageChan, err := s.messageStore.Subscribe(stream.Context(), req.Topic)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create subscription")
+		return status.Error(codes.Internal, "failed to create subscription")
+	}
+
 	logger.Info().Msg("Successfully subscribed to topic")
 
 	// Start a goroutine to handle message delivery
@@ -180,6 +186,13 @@ func (s *SubscriberService) Subscribe(stream mqpb.SubscriberService_SubscribeSer
 	// Main loop for message delivery
 	for {
 		select {
+		case msg := <-messageChan:
+			// Send the message
+			if err := stream.Send(&mqpb.SubscribeResponse{
+				Messages: []*mqpb.Message{msg},
+			}); err != nil {
+				logger.Error().Err(err).Msg("Failed to send message")
+			}
 		case <-stream.Context().Done():
 			// Client disconnected
 			return nil

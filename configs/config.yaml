@@ -16,28 +16,26 @@ server:
 
 # Message Queue configuration
 message_queue:
-  host: localhost
-  port: 5672
-  username: guest
-  password: guest
-  vhost: /
-  exchange: gpu_telemetry
-  queue: telemetry
-  consumer: telemetry_consumer
-  prefetch_count: 10
-  prefetch_size: 0
-  requeue_on_error: true
+  address: localhost:50051
 
 # Storage configuration
 storage:
-  type: memory # Can be 'memory' or 'postgres'
+  type: postgres # Can be 'memory' or 'postgres'
   postgres:
     host: localhost
     port: 5432
     user: postgres
-    password: postgres
+    password: mysecretpassword
     dbname: gputel
     sslmode: disable
+
+database:
+  host: localhost
+  port: 5432
+  user: gputel
+  password: password
+  dbname: gputel
+  sslmode: disable
 
 # Logging configuration
 log:
@@ -51,3 +49,9 @@ telemetry:
   max_retries: 3
   batch_size: 100
   max_queue_size: 1000
+
+collector:
+  batch_size: 100
+  max_in_flight: 1000
+  ack_timeout_seconds: 30
+  worker_count: 1
