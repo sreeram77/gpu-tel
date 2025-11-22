@@ -23,9 +23,11 @@ type Collector struct {
 	storage   TelemetryStorage
 	subClient mqpb.SubscriberServiceClient
 	conn      *grpc.ClientConn
-	done      chan struct{}
-	wg        sync.WaitGroup
-	metrics   collectorMetrics
+
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
+	metrics collectorMetrics
 }
 
 // CollectorConfig holds configuration for the Collector
@@ -95,7 +97,6 @@ func NewCollector(logger zerolog.Logger, storage TelemetryStorage, cfg *Collecto
 		storage:   storage,
 		subClient: subClient,
 		conn:      conn,
-		done:      make(chan struct{}),
 		metrics: collectorMetrics{
 			messagesProcessed: messagesProcessed,
 			processingTime:    processingTime,
@@ -107,37 +108,34 @@ func NewCollector(logger zerolog.Logger, storage TelemetryStorage, cfg *Collecto
 
 // Start begins collecting telemetry data
 func (c *Collector) Start(ctx context.Context) error {
-	// Start multiple worker goroutines
-	for i := 0; i < c.config.WorkerCount; i++ {
-		c.wg.Add(1)
-		go c.worker(ctx, i)
-	}
+	ctx, c.cancel = context.WithCancel(ctx)
+
+	c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+		c.runSubscriptionLoop(ctx)
+	}()
 
 	c.logger.Info().
-		Int("worker_count", c.config.WorkerCount).
 		Str("topic", c.config.Topic).
-		Msg("Started telemetry collector workers")
+		Str("consumer_group", c.config.ConsumerGroup).
+		Msg("Started telemetry collector")
 
 	return nil
 }
 
-// worker is a single worker goroutine that processes messages
-func (c *Collector) worker(ctx context.Context, workerID int) {
-	defer c.wg.Done()
-
-	logger := c.logger.With().Int("worker_id", workerID).Logger()
+// runSubscriptionLoop continuously processes messages from the subscription
+func (c *Collector) runSubscriptionLoop(ctx context.Context) {
+	consumerID := fmt.Sprintf("%s-collector", c.config.ConsumerGroup)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info().Msg("Stopping worker due to context cancellation")
-			return
-		case <-c.done:
-			logger.Info().Msg("Stopping worker")
+			c.logger.Info().Msg("Stopping subscription loop due to context cancellation")
 			return
 		default:
-			if err := c.processBatch(ctx, workerID); err != nil {
-				logger.Error().Err(err).Msg("Error processing batch")
+			if err := c.processSubscription(ctx, consumerID); err != nil {
+				c.logger.Error().Err(err).Msg("Error in subscription loop")
 				// Add a small delay to prevent tight loop on errors
 				time.Sleep(time.Second)
 			}
@@ -145,15 +143,12 @@ func (c *Collector) worker(ctx context.Context, workerID int) {
 	}
 }
 
-// processBatch processes a single batch of messages
-func (c *Collector) processBatch(ctx context.Context, workerID int) error {
-	ctx, span := otel.Tracer("collector").Start(ctx, "processBatch")
+// processSubscription handles the subscription and processing of messages
+func (c *Collector) processSubscription(ctx context.Context, consumerID string) error {
+	ctx, span := otel.Tracer("collector").Start(ctx, "processSubscription")
 	defer span.End()
 
-	// Create a unique consumer ID for this worker
-	consumerID := fmt.Sprintf("%s-worker-%d", c.config.ConsumerGroup, workerID)
-
-	// Subscribe to the message queue
+	// Create a new stream for this subscription
 	stream, err := c.subClient.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create subscribe stream: %w", err)
@@ -164,7 +159,7 @@ func (c *Collector) processBatch(ctx context.Context, workerID int) error {
 		}
 	}()
 
-	// Send subscription request
+	// Send initial subscription request
 	subReq := &mqpb.SubscribeRequest{
 		Topic:             c.config.Topic,
 		ConsumerId:        consumerID,
@@ -177,69 +172,78 @@ func (c *Collector) processBatch(ctx context.Context, workerID int) error {
 		return fmt.Errorf("failed to send subscribe request: %w", err)
 	}
 
-	// Receive messages
-	resp, err := stream.Recv()
-	if err != nil {
-		return fmt.Errorf("failed to receive messages: %w", err)
-	}
+	// Continuously receive and process messages
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			// Receive messages
+			resp, err := stream.Recv()
+			if err != nil {
+				return fmt.Errorf("failed to receive messages: %w", err)
+			}
 
-	// Skip heartbeats
-	if resp.Heartbeat || len(resp.Messages) == 0 {
-		return nil
-	}
+			// Skip heartbeats and empty messages
+			if resp.Heartbeat || len(resp.Messages) == 0 {
+				continue
+			}
 
-	startTime := time.Now()
-	batchSize := len(resp.Messages)
+			startTime := time.Now()
+			batchSize := len(resp.Messages)
 
-	// Process messages in batch
-	batch := TelemetryBatch{
-		BatchID:   fmt.Sprintf("batch-%d-%s", workerID, time.Now().Format("20060102-150405.000")),
-		Timestamp: time.Now(),
-		Telemetry: make([]GPUTelemetry, 0, batchSize),
-	}
+			// Process messages in batch
+			batch := TelemetryBatch{
+				BatchID:   fmt.Sprintf("batch-%s", time.Now().Format("20060102-150405.000")),
+				Timestamp: time.Now(),
+				Telemetry: make([]GPUTelemetry, 0, batchSize),
+			}
 
-	// Track message IDs for acknowledgment
-	messageIDs := make([]string, 0, batchSize)
+			// Track message IDs for acknowledgment
+			messageIDs := make([]string, 0, batchSize)
 
-	for _, msg := range resp.Messages {
-		// Parse the message payload
-		var telemetry GPUTelemetry
-		if err := json.Unmarshal(msg.Payload, &telemetry); err != nil {
-			c.logger.Error().Err(err).Str("message_id", msg.Id).Msg("Failed to unmarshal telemetry")
-			c.metrics.errors.Add(ctx, 1)
-			continue
+			for _, msg := range resp.Messages {
+				// Parse the message payload
+				var telemetry GPUTelemetry
+				if err := json.Unmarshal(msg.Payload, &telemetry); err != nil {
+					c.logger.Error().
+						Err(err).
+						Str("message_id", msg.Id).
+						Msg("Failed to unmarshal telemetry data")
+					continue
+				}
+
+				batch.Telemetry = append(batch.Telemetry, telemetry)
+				messageIDs = append(messageIDs, msg.Id)
+			}
+
+			// Store the batch if we have any valid messages
+			if len(batch.Telemetry) > 0 {
+				if err := c.storage.Store(ctx, batch); err != nil {
+					c.logger.Error().
+						Err(err).
+						Msg("Failed to store batch, continuing to process messages")
+					continue
+				}
+
+				// Record metrics
+				c.metrics.messagesProcessed.Add(ctx, int64(len(batch.Telemetry)))
+				c.metrics.batchSize.Record(ctx, int64(len(batch.Telemetry)))
+
+				// Acknowledge processed messages
+				if err := c.acknowledgeMessages(ctx, messageIDs, consumerID); err != nil {
+					c.logger.Error().
+						Err(err).
+						Strs("message_ids", messageIDs).
+						Msg("Failed to acknowledge messages")
+					// Continue processing even if ack fails
+				}
+
+				// Record processing time
+				c.metrics.processingTime.Record(ctx, time.Since(startTime).Seconds())
+			}
 		}
-
-		batch.Telemetry = append(batch.Telemetry, telemetry)
-		messageIDs = append(messageIDs, msg.Id)
 	}
-
-	// Store the batch if we have any valid telemetry
-	if len(batch.Telemetry) > 0 {
-		if err := c.storage.Store(ctx, batch); err != nil {
-			c.logger.Error().Err(err).Msg("Failed to store telemetry batch")
-			c.metrics.errors.Add(ctx, 1)
-			return fmt.Errorf("failed to store telemetry batch: %w", err)
-		}
-	}
-
-	// Acknowledge processed messages
-	if err := c.acknowledgeMessages(ctx, messageIDs, consumerID); err != nil {
-		c.logger.Error().Err(err).Msg("Failed to acknowledge messages")
-		return fmt.Errorf("failed to acknowledge messages: %w", err)
-	}
-
-	// Record metrics
-	processingTime := time.Since(startTime).Seconds()
-	c.metrics.messagesProcessed.Add(ctx, int64(len(batch.Telemetry)))
-	c.metrics.processingTime.Record(ctx, processingTime)
-	c.metrics.batchSize.Record(ctx, int64(batchSize))
-
-	c.logger.Debug().
-		Int("batch_size", len(batch.Telemetry)).
-		Float64("processing_time_seconds", processingTime).
-		Msg("Processed batch of telemetry")
-
 	return nil
 }
 
@@ -286,7 +290,9 @@ func (c *Collector) acknowledgeMessages(ctx context.Context, messageIDs []string
 
 // Stop gracefully stops the collector
 func (c *Collector) Stop() error {
-	close(c.done)
+	if c.cancel != nil {
+		c.cancel()
+	}
 	c.wg.Wait()
 
 	if c.conn != nil {
