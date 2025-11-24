@@ -199,22 +199,21 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 	// Process each metric in the batch
 	for _, metric := range batch {
 		value, _ := strconv.ParseFloat(metric.Value, 64)
-		memoryTotal := uint64(80 * 1024 * 1024 * 1024)               // 80GB in bytes for H100
-		memoryUsed := uint64(float64(memoryTotal) * (value / 100.0)) // Estimate based on utilization
 
-		// Create telemetry data using the local GPUTelemetry struct
+		// Create telemetry data using the GPUTelemetry struct
 		telemetry := GPUTelemetry{
-			ID:             metric.UUID,
-			GPUIndex:       mustAtoi(metric.GPUIndex),
-			GPUName:        metric.ModelName,
-			GPUTemperature: 60.0 + (value / 2), // Simulate temperature based on load
-			GPULoad:        value,
-			MemoryUsed:     memoryUsed,
-			MemoryTotal:    memoryTotal,
-			PowerDraw:      300.0 * (value / 100.0), // Simulate power draw based on load (max 300W)
-			PowerLimit:     300.0,                   // H100 power limit
-			FanSpeed:       30.0 + (value * 0.7),    // Simulate fan speed
-			Timestamp:      time.Now(),
+			Timestamp:  time.Now(),
+			MetricName: metric.MetricName,
+			GPUIndex:   metric.GPUIndex, // Keep as string to match struct
+			Device:     metric.Device,
+			UUID:       metric.UUID,
+			ModelName:  metric.ModelName,
+			Hostname:   metric.Hostname,
+			Container:  metric.Container,
+			Pod:        metric.Pod,
+			Namespace:  metric.Namespace,
+			Value:      value, // Converted from string to float64 earlier
+			LabelsRaw:  metric.Labels,
 		}
 
 		// Marshal telemetry to JSON for the message payload
@@ -232,7 +231,7 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 				Payload:   payload,
 				Timestamp: timestamppb.Now(),
 			},
-			WaitForAck:      true,
+			WaitForAck:        true,
 			AckTimeoutSeconds: 5, // 5 second timeout for acknowledgment
 		}
 

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -21,18 +21,18 @@ type GPU struct {
 
 // Telemetry represents a telemetry data point for a GPU
 type Telemetry struct {
-	Timestamp   time.Time `json:"timestamp"`
-	MetricName  string    `json:"metric_name"`
-	GPUIndex    string    `json:"gpu_id"`
-	Device      string    `json:"device"`
-	UUID        string    `json:"uuid"`
-	ModelName   string    `json:"model_name"`
-	Hostname    string    `json:"hostname"`
-	Container   string    `json:"container,omitempty"`
-	Pod         string    `json:"pod,omitempty"`
-	Namespace   string    `json:"namespace,omitempty"`
-	Value       float64   `json:"value"`
-	LabelsRaw   string    `json:"labels_raw,omitempty"`
+	Timestamp  time.Time `json:"timestamp"`
+	MetricName string    `json:"metric_name"`
+	GPUIndex   string    `json:"gpu_id"`
+	Device     string    `json:"device"`
+	UUID       string    `json:"uuid"`
+	ModelName  string    `json:"model_name"`
+	Hostname   string    `json:"hostname"`
+	Container  string    `json:"container,omitempty"`
+	Pod        string    `json:"pod,omitempty"`
+	Namespace  string    `json:"namespace,omitempty"`
+	Value      float64   `json:"value"`
+	LabelsRaw  string    `json:"labels_raw,omitempty"`
 }
 
 // ErrorResponse represents an error response
@@ -57,7 +57,7 @@ func (s *Server) listGPUs(c *gin.Context) {
 		if len(parts) != 4 {
 			continue
 		}
-		
+
 		hostname := parts[0]
 		gpuID := strings.TrimPrefix(parts[1], "GPU ")
 		modelName := strings.TrimSuffix(strings.TrimPrefix(parts[2], "("), ")")
@@ -102,22 +102,57 @@ func (s *Server) getGPUTelemetry(c *gin.Context) {
 	result := make([]Telemetry, 0, len(telemetryData))
 	for _, t := range telemetryData {
 		result = append(result, Telemetry{
-			Timestamp:   t.Timestamp,
-			MetricName:  t.MetricName,
-			GPUIndex:    t.GPUIndex,
-			Device:      t.Device,
-			UUID:        t.UUID,
-			ModelName:   t.ModelName,
-			Hostname:    t.Hostname,
-			Container:   t.Container,
-			Pod:         t.Pod,
-			Namespace:   t.Namespace,
-			Value:       t.Value,
-			LabelsRaw:   t.LabelsRaw,
+			Timestamp:  t.Timestamp,
+			MetricName: t.MetricName,
+			GPUIndex:   t.GPUIndex,
+			Device:     t.Device,
+			UUID:       t.UUID,
+			ModelName:  t.ModelName,
+			Hostname:   t.Hostname,
+			Container:  t.Container,
+			Pod:        t.Pod,
+			Namespace:  t.Namespace,
+			Value:      t.Value,
+			LabelsRaw:  t.LabelsRaw,
 		})
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// parseTimeRange parses start and end time from query parameters
+func parseTimeRange(c *gin.Context) (time.Time, time.Time, error) {
+	now := time.Now()
+	defaultStart := now.Add(-24 * time.Hour) // Default to last 24 hours
+
+	// Parse start time
+	startTimeStr := c.DefaultQuery("start", "")
+	startTime, err := parseTimeParam(startTimeStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start time: %v", err)
+	}
+	if startTime == nil {
+		t := defaultStart
+		startTime = &t
+	}
+
+	// Parse end time
+	endTimeStr := c.DefaultQuery("end", "")
+	endTime, err := parseTimeParam(endTimeStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end time: %v", err)
+	}
+	if endTime == nil {
+		t := now
+		endTime = &t
+	}
+
+	// Validate time range
+	if endTime.Before(*startTime) {
+		return time.Time{}, time.Time{}, fmt.Errorf("end time cannot be before start time")
+	}
+
+	return *startTime, *endTime, nil
 }
 
 // parseTimeParam parses a time parameter from a string
