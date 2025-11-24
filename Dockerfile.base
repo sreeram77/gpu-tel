@@ -1,0 +1,17 @@
+# Builder stage for building the application
+FROM golang:1.25.3-alpine AS gpu-tel-builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev git
+
+# Download dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o /app/bin/ ./cmd/...
