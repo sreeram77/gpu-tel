@@ -34,6 +34,9 @@ VERSION?=dev
 KIND_CLUSTER_NAME?=gpu-tel-cluster
 KUBECONFIG?=${HOME}/.kube/config
 
+# Kind configuration
+KIND_CONFIG?=deploy/kind/kind-config.yaml
+
 # Docker image names for local development
 MQ_IMAGE_NAME=gpu-tel-mq
 STREAMER_IMAGE_NAME=gpu-tel-streamer
@@ -251,7 +254,7 @@ kind-create:
 	@if kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
 		echo "Cluster '$(KIND_CLUSTER_NAME)' already exists"; \
 	else \
-		kind create cluster --name $(KIND_CLUSTER_NAME) --config=deploy/kind/kind-config.yaml; \
+		kind create cluster --name $(KIND_CLUSTER_NAME) --config=$(KIND_CONFIG); \
 	fi
 
 ## kind-delete: Delete the local Kind Kubernetes cluster
@@ -270,11 +273,21 @@ kind-load-images: docker-build
 ## kind-deploy: Deploy the application to the Kind cluster
 kind-deploy: kind-load-images
 	@echo "Deploying to Kind cluster..."
-	kubectl apply -f deploy/kubernetes/namespace.yaml
-	helm upgrade --install gpu-tel ./deploy/helm/gpu-tel \
+	kubectl create namespace gpu-tel --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install gpu-tel ./deploy/charts/gpu-tel \
 		--namespace gpu-tel \
 		--create-namespace \
-		--values ./deploy/helm/gpu-tel/values-kind.yaml
+		--set postgresql.auth.postgresPassword=postgres \
+		--set postgresql.auth.password=mysecretpassword \
+		--set postgresql.auth.database=gputel \
+		--set images.apiServer.repository=$(API_IMAGE_NAME) \
+		--set images.apiServer.tag=$(VERSION) \
+		--set images.mqService.repository=$(MQ_IMAGE_NAME) \
+		--set images.mqService.tag=$(VERSION) \
+		--set images.telemetryCollector.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set images.telemetryCollector.tag=$(VERSION) \
+		--set images.telemetryStreamer.repository=$(STREAMER_IMAGE_NAME) \
+		--set images.telemetryStreamer.tag=$(VERSION)
 
 ## kind-undeploy: Remove the application from the Kind cluster
 kind-undeploy:
@@ -301,7 +314,7 @@ kind-logs:
 ## kind-port-forward: Forward API service port
 kind-port-forward:
 	@echo "Forwarding API service port 8080 to localhost:8080..."
-	@kubectl port-forward -n gpu-tel svc/gpu-tel-api 8080:8080
+	@kubectl port-forward -n gpu-tel svc/$(shell kubectl get svc -n gpu-tel -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
 
 ## kind-all: Create cluster and deploy application
 kind-all: kind-create kind-deploy kind-status

@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gpu-tel.fullname" . }}-mq-service
+  labels:
+    {{- include "gpu-tel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mq-service
+spec:
+  replicas: {{ .Values.services.mqService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "gpu-tel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mq-service
+  template:
+    metadata:
+      labels:
+        {{- include "gpu-tel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mq-service
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "gpu-tel.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-mq-service
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.images.mqService.repository }}:{{ .Values.images.mqService.tag }}"
+          imagePullPolicy: {{ .Values.images.mqService.pullPolicy }}
+          command: ["/app/mq-service"]
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.services.mqService.port }}
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command: ["grpc_health_probe", "-addr=:{{ .Values.services.mqService.port }}"]
+          readinessProbe:
+            exec:
+              command: ["grpc_health_probe", "-addr=:{{ .Values.services.mqService.port }}"]
+          resources:
+            {{- toYaml .Values.services.mqService.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "gpu-tel.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

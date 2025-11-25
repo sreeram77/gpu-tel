@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gpu-tel.fullname" . }}-telemetry-streamer
+  labels:
+    {{- include "gpu-tel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: telemetry-streamer
+spec:
+  replicas: {{ .Values.services.telemetryStreamer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "gpu-tel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: telemetry-streamer
+  template:
+    metadata:
+      labels:
+        {{- include "gpu-tel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: telemetry-streamer
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "gpu-tel.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-telemetry-streamer
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.images.telemetryStreamer.repository }}:{{ .Values.images.telemetryStreamer.tag }}"
+          imagePullPolicy: {{ .Values.images.telemetryStreamer.pullPolicy }}
+          command: ["/app/telemetry-streamer"]
+          resources:
+            {{- toYaml .Values.services.telemetryStreamer.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "gpu-tel.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

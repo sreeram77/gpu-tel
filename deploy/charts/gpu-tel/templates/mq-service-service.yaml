@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gpu-tel.fullname" . }}-mq-service
+  labels:
+    {{- include "gpu-tel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mq-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.services.mqService.port }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "gpu-tel.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mq-service
