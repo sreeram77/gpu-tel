@@ -1,5 +1,6 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+name: gpu-tel-cluster
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -15,6 +16,12 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
-  - containerPort: 30000-32767
-    hostPort: 30000-32767
+  - containerPort: 30000
+    hostPort: 30000
+    protocol: TCP
+  - containerPort: 30001
+    hostPort: 30001
+    protocol: TCP
+  - containerPort: 30002
+    hostPort: 30002
     protocol: TCP
