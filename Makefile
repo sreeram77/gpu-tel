@@ -172,10 +172,10 @@ format:
 COVERAGE_FILE=coverage.out
 COVERAGE_HTML=coverage.html
 
-# Run tests
+# Run tests with 1 minute timeout
 test:
-	@echo "Running tests..."
-	$(GOTEST) -v -coverprofile=$(COVERAGE_FILE) -covermode=count ./...
+	@echo "Running tests with 1 minute timeout..."
+	$(GOTEST) -v -timeout=1m -coverprofile=$(COVERAGE_FILE) -covermode=count ./...
 
 # Run tests with coverage and generate HTML report
 test-cover: test
@@ -318,7 +318,10 @@ deps:
 	$(GOMOD) download
 	$(GOGET) -u google.golang.org/protobuf/cmd/protoc-gen-go
 	$(GOGET) -u google.golang.org/grpc/cmd/protoc-gen-go-grpc
-	$(GOGET) -u github.com/stretchr/testify/assert
+	$(GOGET) -u github.com/stretchr/testify/assert@v1.8.4
+	$(GOGET) -u github.com/golang/mock/mockgen@v1.6.0
+	$(GOGET) -u github.com/rs/zerolog/log
+	go install github.com/golang/mock/mockgen@v1.6.0
 
 # Run message queue service
 run-mq: build-mq
@@ -343,5 +346,5 @@ run-api: build-api
 # Generate mocks for testing
 mock:
 	@echo "Generating mocks..."
-	$(GOGET) github.com/golang/mock/mockgen@latest
+	$(GOGET) github.com/golang/mock/mockgen@v1.6.0
 	go generate ./...
