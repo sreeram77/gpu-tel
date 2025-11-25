@@ -2,12 +2,12 @@
 FROM --platform=$BUILDPLATFORM gpu-tel-base:latest as builder
 
 # Final stage
-FROM alpine:3.18
+FROM gpu-tel-base:${VERSION}
 
-WORKDIR /app
+WORKDIR /app/bin
 
 # Copy the binary from the builder
-COPY --from=gpu-tel-builder /app/bin/api-server /app/
+COPY --from=builder /app/bin/api-server /app/bin/
 
 # Copy configuration
 COPY configs/ /app/configs/
@@ -19,4 +19,7 @@ RUN apk add --no-cache ca-certificates
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["/app/api-server"]
+ENTRYPOINT ["./api-server"]
+
+# Default command arguments
+CMD ["--config", "/app/configs/config.yaml"]

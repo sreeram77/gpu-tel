@@ -2,12 +2,12 @@
 FROM --platform=$BUILDPLATFORM gpu-tel-base:latest as builder
 
 # Final stage
-FROM alpine:3.18
+FROM gpu-tel-base:${VERSION}
 
-WORKDIR /app
+WORKDIR /app/bin
 
 # Copy the binary from the builder
-COPY --from=gpu-tel-builder /app/bin/streamer /app/
+COPY --from=builder /app/bin/streamer /app/bin/telemetry-streamer
 
 # Copy configuration
 COPY configs/ /app/configs/
@@ -16,4 +16,7 @@ COPY configs/ /app/configs/
 RUN apk add --no-cache ca-certificates
 
 # Command to run the executable
-CMD ["/app/streamer"]
+ENTRYPOINT ["./telemetry-streamer"]
+
+# Default command arguments
+CMD ["--config", "/app/configs/config.yaml"]
