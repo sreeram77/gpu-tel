@@ -24,8 +24,6 @@ WORKDIR /app/bin
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates \
     && apk add --no-cache --virtual .build-deps \
-        nvidia-utils \
-        nvidia-settings \
     && rm -rf /var/cache/apk/*
 
 # Copy binary from builder

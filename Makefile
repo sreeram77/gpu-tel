@@ -36,12 +36,21 @@ KUBECONFIG?=${HOME}/.kube/config
 
 # Kind configuration
 KIND_CONFIG?=deploy/kind/kind-config.yaml
+KIND_REGISTRY=localhost:5000
 
 # Docker image names for local development
 MQ_IMAGE_NAME=gpu-tel-mq
 STREAMER_IMAGE_NAME=gpu-tel-streamer
 COLLECTOR_IMAGE_NAME=gpu-tel-collector
 API_IMAGE_NAME=gpu-tel-api
+
+# Helm configuration
+HELM_RELEASE_NAME?=gpu-tel
+HELM_CHART=deploy/charts/gpu-tel
+HELM_NAMESPACE?=default
+
+# Image tags for local development
+IMAGE_TAG?=latest
 
 # Protobuf
 PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
@@ -79,6 +88,19 @@ help:
 	@echo "  docker-up        Start all services with docker-compose"
 	@echo "  docker-down      Stop all services with docker-compose"
 	@echo "  docker-logs      View logs from all services"
+	@echo "  docker-tag       Tag images for local registry"
+	@echo "  docker-push      Push images to local registry"
+	
+	@echo "\nKubernetes/Helm targets:"
+	@echo "  helm-install     Install/upgrade the Helm release"
+	@echo "  helm-uninstall   Uninstall the Helm release"
+	@echo "  helm-status      Show status of the Helm release"
+	@echo "  helm-template    Template the Helm charts"
+	@echo "  kind-create      Create a local Kind cluster"
+	@echo "  kind-delete      Delete the local Kind cluster"
+	@echo "  kind-load-images Load local images into Kind"
+	
+	@echo "\nDevelopment:"
 	@echo "  test             Run tests"
 	@echo "  test-api         Run API tests"
 	@echo "  clean            Remove build artifacts"
@@ -89,6 +111,8 @@ help:
 	@echo "  run-mq           Run message queue service"
 	@echo "  run-streamer     Run telemetry streamer"
 	@echo "  run-collector    Run telemetry collector"
+	@echo "  dev-setup        Setup development environment (Kind cluster + local registry)"
+	@echo "  dev-deploy       Build, load images, and deploy to local cluster"
 
 # Install protoc and plugins if not present
 check-protoc:
@@ -170,6 +194,93 @@ format:
 	@echo "Formatting code..."
 	@$(GOCMD) fmt ./...
 	@$(GOCMD) vet ./...
+
+# Build individual Docker images
+docker-build-api:
+	$(DOCKER_CMD) build -t $(API_IMAGE_NAME):$(IMAGE_TAG) -f cmd/api-server/Dockerfile .
+
+docker-build-mq:
+	$(DOCKER_CMD) build -t $(MQ_IMAGE_NAME):$(IMAGE_TAG) -f cmd/mq-service/Dockerfile .
+
+docker-build-collector:
+	$(DOCKER_CMD) build -t $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) -f cmd/telemetry-collector/Dockerfile .
+
+docker-build-streamer:
+	$(DOCKER_CMD) build -t $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) -f cmd/telemetry-streamer/Dockerfile .
+
+# Build all Docker images
+docker-build: docker-build-api docker-build-mq docker-build-collector docker-build-streamer
+
+# Tag images for local registry
+docker-tag:
+	$(DOCKER_CMD) tag $(API_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(API_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) tag $(MQ_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) tag $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) tag $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
+
+# Push images to local registry
+docker-push:
+	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(API_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
+
+# Kind cluster management
+kind-create:
+	@if ! kind get clusters | grep -q $(KIND_CLUSTER_NAME); then \
+		echo "Creating Kind cluster with local registry..."; \
+		kind create cluster --name $(KIND_CLUSTER_NAME) --config $(KIND_CONFIG); \
+		kubectl cluster-info --context kind-$(KIND_CLUSTER_NAME); \
+	else \
+		echo "Kind cluster '$(KIND_CLUSTER_NAME)' already exists"; \
+	fi
+
+kind-delete:
+	kind delete cluster --name $(KIND_CLUSTER_NAME)
+
+# Load local images into Kind cluster
+kind-load-images:
+	kind load docker-image $(API_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
+	kind load docker-image $(MQ_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
+	kind load docker-image $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
+	kind load docker-image $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
+
+# Helm commands
+helm-deps:
+	helm dependency update $(HELM_CHART)
+
+helm-install: helm-deps
+	helm upgrade --install $(HELM_RELEASE_NAME) $(HELM_CHART) \
+		--namespace $(HELM_NAMESPACE) \
+		--create-namespace \
+		--set api-server.image.repository=$(API_IMAGE_NAME) \
+		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
+		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
+		--set global.image.tag=$(IMAGE_TAG) \
+		--set global.image.pullPolicy=Never
+
+helm-uninstall:
+	helm uninstall $(HELM_RELEASE_NAME) --namespace $(HELM_NAMESPACE)
+
+helm-status:
+	helm status $(HELM_RELEASE_NAME) --namespace $(HELM_NAMESPACE)
+
+helm-template:
+	helm template $(HELM_RELEASE_NAME) $(HELM_CHART) \
+		--namespace $(HELM_NAMESPACE) \
+		--set api-server.image.repository=$(API_IMAGE_NAME) \
+		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
+		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
+		--set global.image.tag=$(IMAGE_TAG) \
+		--set global.image.pullPolicy=Never
+
+# Development setup
+dev-setup: kind-create
+
+# Full deployment workflow
+dev-deploy: docker-build kind-load-images helm-install
 
 # Test coverage file
 COVERAGE_FILE=coverage.out

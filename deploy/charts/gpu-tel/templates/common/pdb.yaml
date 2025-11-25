@@ -1,0 +1,19 @@
+{{- define "gpu-tel.podDisruptionBudget" -}}
+{{- $root := . -}}
+{{- range $name, $subchart := .Values.subcharts -}}
+{{- if and $subchart.enabled (gt (int $subchart.replicaCount) 1) -}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "gpu-tel.labels" $root | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+{{- end -}}
+{{- end -}}
+{{- end -}}

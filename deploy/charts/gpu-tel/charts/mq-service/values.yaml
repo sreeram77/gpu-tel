@@ -1,0 +1,29 @@
+replicaCount: 1
+
+image:
+  repository: gpu-tel-mq
+  pullPolicy: Never  # Always use local image for development
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 5672  # Default AMQP port
+
+# Additional environment variables
+env: []
+  # - name: ENV_VAR_NAME
+  #   value: value
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

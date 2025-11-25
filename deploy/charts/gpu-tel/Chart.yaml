@@ -1,6 +1,0 @@
-apiVersion: v2
-name: gpu-tel
-description: A Helm chart for GPU Telemetry Application
-version: 0.1.0
-appVersion: "0.1.0"
-type: application
