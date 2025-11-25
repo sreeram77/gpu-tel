@@ -1,21 +1,35 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM gpu-tel-base:latest as builder
+FROM golang:1.25.3-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev git
+
+# Download dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/telemetry-collector ./cmd/telemetry-collector
 
 # Final stage
-FROM gpu-tel-base:${VERSION}
+FROM alpine:3.18
 
 WORKDIR /app/bin
 
-# Install NVIDIA Container Toolkit and other dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    nvidia-utils-525 \
-    nvidia-settings \
-    && rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates \
+    && apk add --no-cache --virtual .build-deps \
+        nvidia-utils \
+        nvidia-settings \
+    && rm -rf /var/cache/apk/*
 
-# Copy the binary from the builder
-COPY --from=builder /app/bin/collector /app/bin/telemetry-collector
-
-# Copy configuration
+# Copy binary from builder
+COPY --from=builder /app/bin/telemetry-collector /app/bin/
 COPY configs/ /app/configs/
 
 # Command to run the executable

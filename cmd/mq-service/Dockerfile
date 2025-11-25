@@ -1,25 +1,35 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM gpu-tel-base:latest as builder
+FROM golang:1.25.3-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev git
+
+# Download dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/mq-service ./cmd/mq-service
 
 # Final stage
-FROM gpu-tel-base:${VERSION}
+FROM alpine:3.18
 
 WORKDIR /app/bin
-
-# Copy the binary from the builder
-COPY --from=builder /app/bin/mqservice /app/bin/
-
-# Copy configuration
-COPY configs/ /app/configs/
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates
 
-# Expose the port the app runs on
-EXPOSE 5672
+# Copy binary from builder
+COPY --from=builder /app/bin/mq-service /app/bin/
+COPY configs/ /app/configs/
 
-# Expose the gRPC port
-EXPOSE 50051
+# Expose the ports
+EXPOSE 50051 5672
 
 # Command to run the executable
 ENTRYPOINT ["./mq-service"]

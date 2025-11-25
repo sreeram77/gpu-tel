@@ -212,18 +212,29 @@ clean:
 	@find . -name "*.test" -delete
 	@echo "Clean complete"
 
-# Build the base image
-docker-build-base:
-	@echo "Building base Docker image..."
-	$(DOCKER_CMD) build -f Dockerfile.base -t gpu-tel-base:$(VERSION) .
-
 # Build all Docker images
-docker-build: docker-build-base
+docker-build:
 	@echo "Building service Docker images..."
-	$(DOCKER_CMD) build -f cmd/api-server/Dockerfile -t $(API_IMAGE_NAME):$(VERSION) .
-	$(DOCKER_CMD) build -f cmd/telemetry-collector/Dockerfile -t $(COLLECTOR_IMAGE_NAME):$(VERSION) .
-	$(DOCKER_CMD) build -f cmd/telemetry-streamer/Dockerfile -t $(STREAMER_IMAGE_NAME):$(VERSION) .
-	$(DOCKER_CMD) build -f cmd/mq-service/Dockerfile -t $(MQ_IMAGE_NAME):$(VERSION) .
+	$(DOCKER_CMD) build \
+		--build-arg VERSION=$(VERSION) \
+		-t $(API_IMAGE_NAME):$(VERSION) \
+		-f cmd/api-server/Dockerfile .
+	
+	$(DOCKER_CMD) build \
+		--build-arg VERSION=$(VERSION) \
+		-t $(MQ_IMAGE_NAME):$(VERSION) \
+		-f cmd/mq-service/Dockerfile .
+		
+	$(DOCKER_CMD) build \
+		--build-arg VERSION=$(VERSION) \
+		-t $(COLLECTOR_IMAGE_NAME):$(VERSION) \
+		-f cmd/telemetry-collector/Dockerfile .
+		
+	$(DOCKER_CMD) build \
+		--build-arg VERSION=$(VERSION) \
+		-t $(STREAMER_IMAGE_NAME):$(VERSION) \
+		-f cmd/telemetry-streamer/Dockerfile .
+		
 	@echo "Docker images built successfully for local development"
 
 ## docker-clean: Remove all Docker images
