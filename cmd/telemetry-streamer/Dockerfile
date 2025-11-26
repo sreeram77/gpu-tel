@@ -28,6 +28,9 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/bin/telemetry-streamer /app/bin/
 COPY configs/ /app/configs/
 
+# Copy test data
+COPY test-data/ /app/test-data/
+
 # Command to run the executable
 ENTRYPOINT ["./telemetry-streamer"]
 
