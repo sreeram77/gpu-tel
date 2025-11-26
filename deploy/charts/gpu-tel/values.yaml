@@ -174,7 +174,7 @@ ingress:
 monitoring:
   enabled: true
   # Use the global namespace
-  namespace: {{ .Values.global.namespace }}
+  namespace: monitoring
   serviceMonitor:
     enabled: true
     interval: 30s
