@@ -111,9 +111,11 @@ subcharts:
   postgresql:
     enabled: true
     image:
-      repository: postgres
+      registry: docker.io
+      repository: library/postgres
       tag: '15-alpine'
-      pullPolicy: IfNotPresent
+      pullPolicy: Always
+      pullSecrets: []
     
     # PostgreSQL superuser credentials
     auth:
