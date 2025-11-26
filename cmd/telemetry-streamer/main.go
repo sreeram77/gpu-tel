@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/sreeram77/gpu-tel/internal/config"
 
 	"github.com/sreeram77/gpu-tel/internal/telemetry"
 )
@@ -24,8 +25,13 @@ func main() {
 		BatchSize:      10,
 	}
 
-	// Message queue server address
-	mqAddr := "localhost:50051" // Default address, can be made configurable
+	// Load configuration
+	cfg, err := config.Load("")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to load config")
+	}
+
+	mqAddr := cfg.MessageQueue.Address
 
 	// Create telemetry streamer
 	streamer, err := telemetry.NewStreamer(logger, streamerCfg, mqAddr)
