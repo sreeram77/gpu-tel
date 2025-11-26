@@ -1,7 +1,7 @@
 {{/* vim: set filetype=mustache: */}}
 {{/*
 Expand the name of the chart.
-*/
+*/}}
 {{- define "telemetry-collector.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
@@ -10,7 +10,7 @@ Expand the name of the chart.
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
-*/
+*/}}
 {{- define "telemetry-collector.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
@@ -33,7 +33,7 @@ Create chart name and version as used by the chart label.
 
 {{/*
 Common labels
-*/
+*/}}
 {{- define "telemetry-collector.labels" -}}
 helm.sh/chart: {{ include "telemetry-collector.chart" . }}
 {{ include "telemetry-collector.selectorLabels" . }}
@@ -48,7 +48,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/*
 Selector labels
-*/
+*/}}
 {{- define "telemetry-collector.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "telemetry-collector.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}

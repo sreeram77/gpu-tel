@@ -224,27 +224,6 @@ docker-push:
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
-
-# Kind cluster management
-kind-create:
-	@if ! kind get clusters | grep -q $(KIND_CLUSTER_NAME); then \
-		echo "Creating Kind cluster with local registry..."; \
-		kind create cluster --name $(KIND_CLUSTER_NAME) --config $(KIND_CONFIG); \
-		kubectl cluster-info --context kind-$(KIND_CLUSTER_NAME); \
-	else \
-		echo "Kind cluster '$(KIND_CLUSTER_NAME)' already exists"; \
-	fi
-
-kind-delete:
-	kind delete cluster --name $(KIND_CLUSTER_NAME)
-
-# Load local images into Kind cluster
-kind-load-images:
-	kind load docker-image $(API_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
-	kind load docker-image $(MQ_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
-	kind load docker-image $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
-	kind load docker-image $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
-
 # Helm commands
 helm-deps:
 	helm dependency update $(HELM_CHART)
@@ -257,7 +236,7 @@ helm-install: helm-deps
 		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
 		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
 		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
-		--set global.image.tag=$(IMAGE_TAG) \
+		--set global.image.tag=$(VERSION) \
 		--set global.image.pullPolicy=Never
 
 helm-uninstall:
@@ -273,7 +252,7 @@ helm-template:
 		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
 		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
 		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
-		--set global.image.tag=$(IMAGE_TAG) \
+		--set global.image.tag=$(VERSION) \
 		--set global.image.pullPolicy=Never
 
 # Development setup
