@@ -1,5 +1,8 @@
 # Global variables
 global:
+  # Default namespace for all resources
+  namespace: gpu-tel
+  
   image:
     repository: localhost:5000/gpu-tel  # Using local registry
     pullPolicy: Never  # For local development with minikube
@@ -170,7 +173,8 @@ ingress:
 # Monitoring configuration
 monitoring:
   enabled: true
-  namespace: monitoring
+  # Use the global namespace
+  namespace: {{ .Values.global.namespace }}
   serviceMonitor:
     enabled: true
     interval: 30s

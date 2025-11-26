@@ -48,14 +48,14 @@ KIND_REGISTRY=localhost:5000
 
 # Docker image names for local development
 MQ_IMAGE_NAME=gpu-tel-mq
+
+# Kubernetes/Helm parameters
+HELM_NAMESPACE?=gpu-tel
+HELM_RELEASE_NAME?=gpu-tel
+HELM_CHART=./deploy/charts/gpu-tel
 STREAMER_IMAGE_NAME=gpu-tel-streamer
 COLLECTOR_IMAGE_NAME=gpu-tel-collector
 API_IMAGE_NAME=gpu-tel-api
-
-# Helm configuration
-HELM_RELEASE_NAME?=gpu-tel
-HELM_CHART=deploy/charts/gpu-tel
-HELM_NAMESPACE?=default
 
 # Image tags for local development
 IMAGE_TAG?=latest
@@ -357,9 +357,9 @@ kind-load-images: docker-build
 ## kind-deploy: Deploy the application to the Kind cluster
 kind-deploy: kind-load-images
 	@echo "Deploying to Kind cluster..."
-	kubectl create namespace gpu-tel --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	helm upgrade --install $(HELM_RELEASE_NAME) $(HELM_CHART) \
-		--namespace gpu-tel \
+		--namespace $(HELM_NAMESPACE) \
 		--create-namespace \
 		--set postgresql.enabled=true \
 		--set postgresql.auth.postgresPassword=$(DB_PASSWORD) \
@@ -401,31 +401,31 @@ kind-deploy: kind-load-images
 ## kind-clean: Clean up all resources in the Kind cluster
 kind-clean:
 	@echo "Cleaning up Kind cluster resources..."
-	-helm uninstall $(HELM_RELEASE_NAME) -n gpu-tel 2>/dev/null || true
-	-kubectl delete pvc -l app.kubernetes.io/name=postgresql -n gpu-tel 2>/dev/null || true
-	-kubectl delete namespace gpu-tel 2>/dev/null || true
+	-helm uninstall $(HELM_RELEASE_NAME) -n $(HELM_NAMESPACE) 2>/dev/null || true
+	-kubectl delete pvc -l app.kubernetes.io/name=postgresql -n $(HELM_NAMESPACE) 2>/dev/null || true
+	-kubectl delete namespace $(HELM_NAMESPACE) 2>/dev/null || true
 
 ## kind-status: Show status of the deployed application
 kind-status:
 	@echo "=== Cluster Status ==="
 	kubectl get nodes
 	@echo "\n=== Pods ==="
-	kubectl get pods -n gpu-tel
+	kubectl get pods -n $(HELM_NAMESPACE)
 	@echo "\n=== Services ==="
-	kubectl get svc -n gpu-tel
+	kubectl get svc -n $(HELM_NAMESPACE)
 
 ## kind-logs: View logs from all pods
 kind-logs:
 	@echo "=== Pod Logs ==="
-	@for pod in $$(kubectl get pods -n gpu-tel -o name); do \
+	@for pod in $$(kubectl get pods -n $(HELM_NAMESPACE) -o name); do \
 		echo "\n=== Logs for $$pod ==="; \
-		kubectl logs -n gpu-tel $$pod --tail=50; \
+		kubectl logs -n $(HELM_NAMESPACE) $$pod --tail=50; \
 	done
 
 ## kind-port-forward: Forward API service port
 kind-port-forward:
 	@echo "Forwarding API service port 8080 to localhost:8080..."
-	@kubectl port-forward -n gpu-tel svc/$(shell kubectl get svc -n gpu-tel -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
+	@kubectl port-forward -n $(HELM_NAMESPACE) svc/$(shell kubectl get svc -n $(HELM_NAMESPACE) -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
 
 ## kind-all: Setup and deploy everything to Kind
 kind-all: kind-create kind-load-images kind-deploy
