@@ -16,7 +16,7 @@ server:
 
 # Message Queue configuration
 message_queue:
-  address: localhost:50051
+  address: gpu-tel-mq-service:50051
 
 # Storage configuration
 storage:
@@ -30,10 +30,10 @@ storage:
     sslmode: disable
 
 database:
-  host: localhost
+  host: gpu-tel-postgresql
   port: 5432
-  user: gputel
-  password: password
+  user: postgres
+  password: mysecretpassword
   dbname: gputel
   sslmode: disable
 

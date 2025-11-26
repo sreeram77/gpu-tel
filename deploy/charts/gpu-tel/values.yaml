@@ -117,9 +117,8 @@ subcharts:
       registry: docker.io
       repository: library/postgres
       tag: '15-alpine'
-      pullPolicy: Always
-      pullSecrets: []
-    
+      pullPolicy: IfNotPresent
+
     # PostgreSQL superuser credentials
     auth:
       postgresPassword: "postgres"

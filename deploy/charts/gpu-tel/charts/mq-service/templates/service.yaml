@@ -5,11 +5,16 @@ metadata:
   labels:
     {{- include "mq-service.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: NodePort
   ports:
     - port: {{ .Values.service.port }}
       targetPort: mq
       protocol: TCP
       name: mq
+    - port: 50051
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+      nodePort: 30551
   selector:
     {{- include "mq-service.selectorLabels" . | nindent 4 }}
