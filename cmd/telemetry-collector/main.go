@@ -23,7 +23,7 @@ func main() {
 		Logger()
 
 	// Initialize configuration
-	cfg, err := config.Load("./configs/config.yaml")
+	cfg, err := config.Load("")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to load configuration")
 	}

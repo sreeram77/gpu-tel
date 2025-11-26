@@ -108,7 +108,7 @@ func Load(configPath string) (*Config, error) {
 	// Set up environment variables
 	v.SetEnvPrefix("GPUTEL")
 	v.AutomaticEnv()
-	
+
 	// Enable environment variable binding
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
@@ -185,7 +185,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.max_retries", 3)
 	v.SetDefault("telemetry.batch_size", 100)
 	v.SetDefault("telemetry.max_queue_size", 1000)
-	v.SetDefault("telemetry.metrics_path", "./test-data/metrics.csv")
+	v.SetDefault("telemetry.metrics_path", "/app/test-data/metrics.csv")
 
 	// Database defaults
 	v.SetDefault("database.host", "localhost")
