@@ -38,7 +38,7 @@ DB_SSLMODE?=disable
 # Docker parameters
 DOCKER_CMD=docker
 DOCKER_COMPOSE_CMD=docker-compose
-VERSION?=dev
+VERSION?=latest
 KIND_CLUSTER_NAME?=gpu-tel-cluster
 KUBECONFIG?=${HOME}/.kube/config
 
@@ -205,16 +205,16 @@ format:
 
 # Build individual Docker images
 docker-build-api:
-	$(DOCKER_CMD) build -t $(API_IMAGE_NAME):$(IMAGE_TAG) -f cmd/api-server/Dockerfile .
+	$(DOCKER_CMD) build -t $(API_IMAGE_NAME):$(VERSION) -f cmd/api-server/Dockerfile .
 
 docker-build-mq:
-	$(DOCKER_CMD) build -t $(MQ_IMAGE_NAME):$(IMAGE_TAG) -f cmd/mq-service/Dockerfile .
+	$(DOCKER_CMD) build -t $(MQ_IMAGE_NAME):$(VERSION) -f cmd/mq-service/Dockerfile .
 
 docker-build-collector:
-	$(DOCKER_CMD) build -t $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) -f cmd/telemetry-collector/Dockerfile .
+	$(DOCKER_CMD) build -t $(COLLECTOR_IMAGE_NAME):$(VERSION) -f cmd/telemetry-collector/Dockerfile .
 
 docker-build-streamer:
-	$(DOCKER_CMD) build -t $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) -f cmd/telemetry-streamer/Dockerfile .
+	$(DOCKER_CMD) build -t $(STREAMER_IMAGE_NAME):$(VERSION) -f cmd/telemetry-streamer/Dockerfile .
 
 # Build all Docker images
 docker-build: docker-build-api docker-build-mq docker-build-collector docker-build-streamer
@@ -309,31 +309,6 @@ clean:
 	@rm -rf $(BIN_DIR) $(COVERAGE_FILE) $(COVERAGE_HTML)
 	@find . -name "*.test" -delete
 	@echo "Clean complete"
-
-# Build all Docker images
-docker-build:
-	@echo "Building service Docker images..."
-	$(DOCKER_CMD) build \
-		--build-arg VERSION=$(VERSION) \
-		-t $(API_IMAGE_NAME):$(VERSION) \
-		-f cmd/api-server/Dockerfile .
-	
-	$(DOCKER_CMD) build \
-		--build-arg VERSION=$(VERSION) \
-		-t $(MQ_IMAGE_NAME):$(VERSION) \
-		-f cmd/mq-service/Dockerfile .
-		
-	$(DOCKER_CMD) build \
-		--build-arg VERSION=$(VERSION) \
-		-t $(COLLECTOR_IMAGE_NAME):$(VERSION) \
-		-f cmd/telemetry-collector/Dockerfile .
-		
-	$(DOCKER_CMD) build \
-		--build-arg VERSION=$(VERSION) \
-		-t $(STREAMER_IMAGE_NAME):$(VERSION) \
-		-f cmd/telemetry-streamer/Dockerfile .
-		
-	@echo "Docker images built successfully for local development"
 
 ## docker-clean: Remove all Docker images
 docker-clean:
@@ -454,10 +429,6 @@ kind-port-forward:
 
 ## kind-all: Setup and deploy everything to Kind
 kind-all: kind-create kind-load-images kind-deploy
-	@echo "Waiting for PostgreSQL to be ready..."
-	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgresql \
-		--timeout=300s -n gpu-tel
-	@echo "Deployment complete!"
 
 ## kind-restart: Clean and redeploy
 kind-restart: kind-clean kind-all
