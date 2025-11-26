@@ -49,6 +49,7 @@ type Streamer struct {
 type Config struct {
 	StreamInterval time.Duration
 	BatchSize      int
+	MetricsPath    string
 }
 
 // NewStreamer creates a new Streamer instance
@@ -105,8 +106,12 @@ func (s *Streamer) Stop() error {
 
 // loadMetrics loads metrics from the CSV file
 func (s *Streamer) loadMetrics() error {
+	if s.config.MetricsPath == "" {
+		s.config.MetricsPath = "./test-data/metrics.csv"
+	}
+
 	// Get the absolute path to the metrics file
-	metricsPath := filepath.Join("./test-data", "metrics.csv")
+	metricsPath := s.config.MetricsPath
 
 	// Open the CSV file
 	file, err := os.Open(metricsPath)

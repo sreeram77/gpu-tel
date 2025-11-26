@@ -96,6 +96,7 @@ type TelemetryConfig struct {
 	MaxRetries     int           `mapstructure:"max_retries"`
 	BatchSize      int           `mapstructure:"batch_size"`
 	MaxQueueSize   int           `mapstructure:"max_queue_size"`
+	MetricsPath    string        `mapstructure:"metrics_path"`
 }
 
 // Load loads configuration from file and environment variables.
@@ -184,6 +185,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.max_retries", 3)
 	v.SetDefault("telemetry.batch_size", 100)
 	v.SetDefault("telemetry.max_queue_size", 1000)
+	v.SetDefault("telemetry.metrics_path", "./test-data/metrics.csv")
 
 	// Database defaults
 	v.SetDefault("database.host", "localhost")
