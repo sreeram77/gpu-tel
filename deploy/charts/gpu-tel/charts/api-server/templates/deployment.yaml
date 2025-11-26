@@ -37,9 +37,25 @@ spec:
               value: {{ printf "%s-mq-service" (include "gpu-tel.fullname" .) }}
             - name: MQ_PORT
               value: {{ .Values.mqService.port | quote }}
-          {{- with .Values.env }}
-          {{- toYaml . | nindent 12 }}
-          {{- end }}
+            - name: MQ_SERVICE_HOST
+              value: "{{ include "mq-service.fullname" . }}"
+            - name: MQ_SERVICE_PORT
+              value: "{{ .Values.mqService.port }}"
+            - name: DB_HOST
+              value: "{{ .Values.database.host }}"
+            - name: DB_PORT
+              value: "{{ .Values.database.port | default "5432" }}"
+            - name: DB_NAME
+              value: "{{ .Values.database.name }}"
+            - name: DB_USER
+              value: "{{ .Values.database.user }}"
+            - name: DB_PASSWORD
+              value: "{{ .Values.database.password }}"
+            - name: DB_SSLMODE
+              value: "{{ .Values.database.sslMode | default "disable" }}"
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
