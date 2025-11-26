@@ -111,18 +111,133 @@ make test
 make lint
 ```
 
+## Local Development
+
+### Prerequisites
+
+- Go 1.25+
+- Docker and Docker Compose
+- PostgreSQL 13+
+- Make
+- Kind (Kubernetes in Docker)
+- kubectl
+- Helm 3+
+
+### Quick Start with Kind
+
+1. Set up a local Kind cluster with a container registry:
+   ```bash
+   make dev-setup
+   ```
+
+2. Build and load all Docker images into the Kind cluster:
+   ```bash
+   make docker-build VERSION=latest
+   make kind-load-images
+   ```
+
+3. Deploy the application to Kind:
+   ```bash
+   make dev-deploy
+   ```
+
+4. Port-forward the API service:
+   ```bash
+   kubectl port-forward -n gpu-tel svc/gpu-tel-api-service 8080:8080
+   ```
+
 ## Deployment
 
-### Docker
+### Kubernetes with Helm
 
-```bash
-docker-compose up -d
+For deploying to a Kubernetes cluster:
+
+1. Add the Helm repository:
+   ```bash
+   helm repo add bitnami https://charts.bitnami.com/bitnami
+   helm repo update
+   ```
+
+2. Create the namespace:
+   ```bash
+   kubectl create namespace gpu-tel
+   ```
+
+3. Deploy using the included Helm chart:
+   ```bash
+   helm upgrade --install gpu-tel ./deploy/charts/gpu-tel \
+     --namespace gpu-tel \
+     --set postgresql.auth.postgresPassword=postgres \
+     --set postgresql.auth.password=mysecretpassword \
+     --set postgresql.auth.database=gputel
+   ```
+
+4. Check the deployment status:
+   ```bash
+   kubectl get pods -n gpu-tel
+   ```
+
+5. Access the API:
+   ```bash
+   kubectl port-forward -n gpu-tel svc/gpu-tel-api-service 8080:8080
+   ```
+   Then access the API at `http://localhost:8080`
+
+### Production Deployment
+
+For production, make sure to:
+
+1. Set appropriate resource requests and limits in the Helm values
+2. Configure proper secrets management
+3. Enable ingress and TLS
+4. Set up monitoring and alerting
+5. Configure persistent storage for PostgreSQL
+
+Example production values:
+```yaml
+# production-values.yaml
+replicaCount: 3
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ${DB_PASSWORD}
+    password: ${DB_APP_PASSWORD}
+    database: gputel_prod
+  persistence:
+    size: 20Gi
+    storageClass: standard
+
+service:
+  type: LoadBalancer
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: gpu-tel.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: gpu-tel-tls
+      hosts:
+        - gpu-tel.yourdomain.com
 ```
 
-### Kubernetes
-
+Deploy with:
 ```bash
-kubectl apply -f deploy/kubernetes/
+helm upgrade --install gpu-tel ./deploy/charts/gpu-tel \
+  -f production-values.yaml \
+  --namespace gpu-tel
 ```
 
 ## Monitoring
