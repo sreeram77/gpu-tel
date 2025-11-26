@@ -354,50 +354,6 @@ kind-load-images: docker-build
 	kind load docker-image $(MQ_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 	kind load docker-image $(STREAMER_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 
-## kind-deploy: Deploy the application to the Kind cluster
-kind-deploy: kind-load-images
-	@echo "Deploying to Kind cluster..."
-	kubectl create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
-	helm upgrade --install $(HELM_RELEASE_NAME) $(HELM_CHART) \
-		--namespace $(HELM_NAMESPACE) \
-		--create-namespace \
-		--set postgresql.enabled=true \
-		--set postgresql.auth.postgresPassword=$(DB_PASSWORD) \
-		--set postgresql.auth.username=$(DB_USER) \
-		--set postgresql.auth.password=$(DB_PASSWORD) \
-		--set postgresql.auth.database=$(DB_NAME) \
-		--set postgresql.primary.persistence.enabled=true \
-		--set postgresql.primary.persistence.size=10Gi \
-		--set postgresql.primary.service.port=$(DB_PORT) \
-		--set api-server.database.host="$(HELM_RELEASE_NAME)-postgresql" \
-		--set api-server.database.port=$(DB_PORT) \
-		--set api-server.database.name=$(DB_NAME) \
-		--set api-server.database.user=$(DB_USER) \
-		--set api-server.database.password="$(DB_PASSWORD)" \
-		--set telemetry-collector.database.host="$(HELM_RELEASE_NAME)-postgresql" \
-		--set telemetry-collector.database.port=$(DB_PORT) \
-		--set telemetry-collector.database.name=$(DB_NAME) \
-		--set telemetry-collector.database.user=$(DB_USER) \
-		--set telemetry-collector.database.password="$(DB_PASSWORD)" \
-		--set global.image.repository=$(KIND_REGISTRY)/gpu-tel \
-		--set global.image.tag=$(VERSION) \
-		--set global.image.pullPolicy=IfNotPresent \
-		--set api-server.image.repository=$(KIND_REGISTRY)/$(API_IMAGE_NAME) \
-		--set telemetry-collector.image.repository=$(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME) \
-		--set telemetry-streamer.image.repository=$(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME) \
-		--set mq-service.image.repository=$(KIND_REGISTRY)/$(MQ_IMAGE_NAME) \
-		--set api-server.image.tag=$(VERSION) \
-		--set telemetry-collector.image.tag=$(VERSION) \
-		--set telemetry-streamer.image.tag=$(VERSION) \
-		--set mq-service.image.tag=$(VERSION)
-		--set images.apiServer.tag=$(VERSION) \
-		--set images.mqService.repository=$(MQ_IMAGE_NAME) \
-		--set images.mqService.tag=$(VERSION) \
-		--set images.telemetryCollector.repository=$(COLLECTOR_IMAGE_NAME) \
-		--set images.telemetryCollector.tag=$(VERSION) \
-		--set images.telemetryStreamer.repository=$(STREAMER_IMAGE_NAME) \
-		--set images.telemetryStreamer.tag=$(VERSION)
-
 ## kind-clean: Clean up all resources in the Kind cluster
 kind-clean:
 	@echo "Cleaning up Kind cluster resources..."
@@ -428,7 +384,7 @@ kind-port-forward:
 	@kubectl port-forward -n $(HELM_NAMESPACE) svc/$(shell kubectl get svc -n $(HELM_NAMESPACE) -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
 
 ## kind-all: Setup and deploy everything to Kind
-kind-all: kind-create kind-load-images kind-deploy
+kind-all: kind-create kind-load-images helm-install
 
 ## kind-restart: Clean and redeploy
 kind-restart: kind-clean kind-all
