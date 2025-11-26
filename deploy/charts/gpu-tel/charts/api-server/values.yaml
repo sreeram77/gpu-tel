@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   # For local development, the image name should match the one built by docker-compose or your build script
-  repository: gpu-tel-api-server
+  repository: gpu-tel-api
   pullPolicy: Never  # Always use local image
   tag: latest
 

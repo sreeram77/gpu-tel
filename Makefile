@@ -27,6 +27,14 @@ GOBUILD_CMD=$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$@ ./cmd/$@
 # Default port for API server
 API_PORT?=8080
 
+# Database configuration
+DB_HOST?=localhost
+DB_PORT?=5432
+DB_NAME?=gputel
+DB_USER?=postgres
+DB_PASSWORD?=postgres
+DB_SSLMODE?=disable
+
 # Docker parameters
 DOCKER_CMD=docker
 DOCKER_COMPOSE_CMD=docker-compose
@@ -375,13 +383,38 @@ kind-load-images: docker-build
 kind-deploy: kind-load-images
 	@echo "Deploying to Kind cluster..."
 	kubectl create namespace gpu-tel --dry-run=client -o yaml | kubectl apply -f -
-	helm upgrade --install gpu-tel ./deploy/charts/gpu-tel \
+	helm upgrade --install $(HELM_RELEASE_NAME) $(HELM_CHART) \
 		--namespace gpu-tel \
 		--create-namespace \
-		--set postgresql.auth.postgresPassword=postgres \
-		--set postgresql.auth.password=mysecretpassword \
-		--set postgresql.auth.database=gputel \
-		--set images.apiServer.repository=$(API_IMAGE_NAME) \
+		--set postgresql.enabled=true \
+		--set postgresql.auth.postgresPassword=$(DB_PASSWORD) \
+		--set postgresql.auth.username=$(DB_USER) \
+		--set postgresql.auth.password=$(DB_PASSWORD) \
+		--set postgresql.auth.database=$(DB_NAME) \
+		--set postgresql.primary.persistence.enabled=true \
+		--set postgresql.primary.persistence.size=10Gi \
+		--set postgresql.primary.service.port=$(DB_PORT) \
+		--set api-server.database.host="$(HELM_RELEASE_NAME)-postgresql" \
+		--set api-server.database.port=$(DB_PORT) \
+		--set api-server.database.name=$(DB_NAME) \
+		--set api-server.database.user=$(DB_USER) \
+		--set api-server.database.password="$(DB_PASSWORD)" \
+		--set telemetry-collector.database.host="$(HELM_RELEASE_NAME)-postgresql" \
+		--set telemetry-collector.database.port=$(DB_PORT) \
+		--set telemetry-collector.database.name=$(DB_NAME) \
+		--set telemetry-collector.database.user=$(DB_USER) \
+		--set telemetry-collector.database.password="$(DB_PASSWORD)" \
+		--set global.image.repository=$(KIND_REGISTRY)/gpu-tel \
+		--set global.image.tag=$(VERSION) \
+		--set global.image.pullPolicy=IfNotPresent \
+		--set api-server.image.repository=$(KIND_REGISTRY)/$(API_IMAGE_NAME) \
+		--set telemetry-collector.image.repository=$(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME) \
+		--set telemetry-streamer.image.repository=$(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME) \
+		--set mq-service.image.repository=$(KIND_REGISTRY)/$(MQ_IMAGE_NAME) \
+		--set api-server.image.tag=$(VERSION) \
+		--set telemetry-collector.image.tag=$(VERSION) \
+		--set telemetry-streamer.image.tag=$(VERSION) \
+		--set mq-service.image.tag=$(VERSION)
 		--set images.apiServer.tag=$(VERSION) \
 		--set images.mqService.repository=$(MQ_IMAGE_NAME) \
 		--set images.mqService.tag=$(VERSION) \
@@ -390,10 +423,12 @@ kind-deploy: kind-load-images
 		--set images.telemetryStreamer.repository=$(STREAMER_IMAGE_NAME) \
 		--set images.telemetryStreamer.tag=$(VERSION)
 
-## kind-undeploy: Remove the application from the Kind cluster
-kind-undeploy:
-	@echo "Undeploying from Kind cluster..."
-	helm uninstall gpu-tel --namespace gpu-tel || true
+## kind-clean: Clean up all resources in the Kind cluster
+kind-clean:
+	@echo "Cleaning up Kind cluster resources..."
+	-helm uninstall $(HELM_RELEASE_NAME) -n gpu-tel 2>/dev/null || true
+	-kubectl delete pvc -l app.kubernetes.io/name=postgresql -n gpu-tel 2>/dev/null || true
+	-kubectl delete namespace gpu-tel 2>/dev/null || true
 
 ## kind-status: Show status of the deployed application
 kind-status:
@@ -417,11 +452,12 @@ kind-port-forward:
 	@echo "Forwarding API service port 8080 to localhost:8080..."
 	@kubectl port-forward -n gpu-tel svc/$(shell kubectl get svc -n gpu-tel -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
 
-## kind-all: Create cluster and deploy application
-kind-all: kind-create kind-deploy kind-status
-
-## kind-clean: Remove cluster and clean up
-kind-clean: kind-undeploy kind-delete
+## kind-all: Setup and deploy everything to Kind
+kind-all: kind-create kind-load-images kind-deploy
+	@echo "Waiting for PostgreSQL to be ready..."
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgresql \
+		--timeout=300s -n gpu-tel
+	@echo "Deployment complete!"
 
 ## kind-restart: Clean and redeploy
 kind-restart: kind-clean kind-all
@@ -450,6 +486,12 @@ run-streamer: build-streamer
 # Run telemetry collector
 run-collector: build-collector
 	@echo "Starting telemetry collector..."
+	DB_HOST=$(DB_HOST) \
+	DB_PORT=$(DB_PORT) \
+	DB_NAME=$(DB_NAME) \
+	DB_USER=$(DB_USER) \
+	DB_PASSWORD=$(DB_PASSWORD) \
+	DB_SSLMODE=$(DB_SSLMODE) \
 	./$(BIN_DIR)/$(COLLECTOR_BIN)
 
 # Run API gateway
