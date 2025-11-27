@@ -14,20 +14,6 @@ A RESTful API server that provides access to GPU telemetry data stored in Postgr
 
 ## API Endpoints
 
-### Health Check
-
-```http
-GET /health
-```
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "version": "1.0.0"
-}
-```
-
 ### List GPUs
 
 ```http
@@ -51,12 +37,14 @@ GET /api/v1/gpus
 ### Get GPU Telemetry
 
 ```http
-GET /api/v1/gpus/{gpu_id}/telemetry?start=2023-01-01T00:00:00Z&end=2023-01-02T00:00:00Z
+GET /api/v1/gpus/{gpu_id}/telemetry?start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z
 ```
 
 **Query Parameters:**
-- `start`: Start time in RFC3339 format (optional, defaults to 24 hours ago)
-- `end`: End time in RFC3339 format (optional, defaults to current time)
+- `start_time`: Start time in RFC3339 format (optional, defaults to 24 hours ago)
+- `end_time`: End time in RFC3339 format (optional, defaults to current time)
+
+> **Note**: The old parameter names `start` and `end` are still supported for backward compatibility but are deprecated.
 
 **Response:**
 ```json

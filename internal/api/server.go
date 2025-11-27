@@ -114,14 +114,16 @@ func (s *Server) registerRoutes() {
 			gpus.GET("", s.listGPUs)
 			gpus.GET("/:id/telemetry", s.getGPUTelemetry)
 		}
-
-		// Swagger documentation
-		s.router.StaticFile("/swagger.json", "./api/openapi.yaml")
-		s.router.GET("/docs", func(c *gin.Context) {
-			c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
-		})
-		s.router.Static("/swagger", "./swagger")
 	}
+
+	// API Documentation Endpoints
+	// 1. Raw OpenAPI YAML specification
+	s.router.GET("/openapi.yaml", func(c *gin.Context) {
+		c.File("/api/openapi.yaml")
+	})
+
+	// 2. Swagger UI - SPA for API documentation
+	s.router.Static("/swagger", "/app/swagger")
 }
 
 // healthCheck handles the health check endpoint
