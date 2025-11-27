@@ -11,6 +11,15 @@ A high-performance, scalable telemetry pipeline for collecting, processing, and 
 - **Containerized**: Easy deployment with Docker and Kubernetes
 - **Monitoring**: Built-in OpenTelemetry integration for observability
 
+## Services
+
+This project consists of several microservices, each with its own documentation:
+
+1. [Message Queue Service (mq-service)](./cmd/mq-service/readme.md) - gRPC-based message queue for reliable communication between services
+2. [Telemetry Collector](./cmd/telemetry-collector/readme.md) - Collects and processes GPU telemetry data
+3. [Telemetry Streamer](./cmd/telemetry-streamer/readme.md) - Streams telemetry data from CSV to the message queue
+4. [API Server](./cmd/api-server/readme.md) - Provides RESTful API for querying GPU telemetry data
+
 ## Architecture
 
 The system consists of several microservices:
@@ -98,6 +107,33 @@ API documentation is available in `api/openapi.yaml` and can be viewed using Swa
 ```bash
 make build
 ```
+
+### Testing
+
+Run all tests:
+```bash
+make test
+```
+
+Generate and view test coverage report:
+```bash
+make test-cover-show
+```
+
+Other test coverage commands:
+```bash
+# Show function coverage
+make test-cover-func
+
+# Show package coverage
+make test-cover-pkg
+
+# Run all coverage checks
+make test-cover-all
+```
+
+**Note on Test Coverage**:
+The test coverage metrics include generated files (like protocol buffer code and mocks), which may result in lower coverage percentages than actual code coverage. The coverage for hand-written code is typically higher than the reported numbers.
 
 ### Testing
 
