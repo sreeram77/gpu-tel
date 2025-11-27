@@ -105,12 +105,6 @@ make build
 make test
 ```
 
-### Linting
-
-```bash
-make lint
-```
-
 ## Local Development
 
 ### Prerequisites
@@ -123,11 +117,87 @@ make lint
 - kubectl
 - Helm 3+
 
-### Quick Start with Kind
+### Quick Start with Kind (Single Command)
+
+The easiest way to set up a complete development environment is using the `kind-all` make target, which will:
+1. Create a local Kind cluster
+2. Build all Docker images
+3. Load the images into the Kind cluster
+4. Install all dependencies using Helm
+
+```bash
+make kind-all
+```
+
+After the setup completes, you can access the API service in http://localhost:8080 by port-forwarding:
+```bash
+make kind-port-forward
+```
+
+Then access the API at `http://localhost:8080`
+
+### Local Development without Kubernetes
+
+You can also run the services directly on your local machine without Kubernetes:
+
+1. **Start Dependencies** (PostgreSQL and any other required services):
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+2. **Run Individual Services**:
+
+   - **API Server** (default port 8080):
+     ```bash
+     make run-api
+     # Or with custom port:
+     # API_PORT=3000 make run-api
+     ```
+
+   - **Message Queue Service**:
+     ```bash
+     make run-mq
+     ```
+
+   - **Telemetry Collector**:
+     ```bash
+     # Set database connection details as needed
+     DB_HOST=localhost DB_PORT=5432 DB_NAME=gputel DB_USER=postgres DB_PASSWORD=postgres make run-collector
+     ```
+
+   - **Telemetry Streamer**:
+     ```bash
+     make run-streamer
+     ```
+
+3. **Environment Variables**:
+   You can customize the services using environment variables. Common variables include:
+   ```bash
+   # Database configuration
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=gputel
+   DB_USER=postgres
+   DB_PASSWORD=postgres
+   
+   # API server configuration
+   API_PORT=8080
+   
+   # Message queue configuration
+   MQ_ADDRESS=localhost:50051
+   ```
+
+4. **Verify Services**:
+   - API: `http://localhost:8080`
+   - Health Check: `http://localhost:8080/health`
+
+### Manual Setup with Kind
+
+If you prefer more control over the setup process, you can run the steps manually:
 
 1. Set up a local Kind cluster with a container registry:
    ```bash
-   make dev-setup
+   make kind-create
    ```
 
 2. Build and load all Docker images into the Kind cluster:
@@ -138,13 +208,20 @@ make lint
 
 3. Deploy the application to Kind:
    ```bash
-   make dev-deploy
+   make helm-install
    ```
 
 4. Port-forward the API service:
    ```bash
-   kubectl port-forward -n gpu-tel svc/gpu-tel-api-service 8080:8080
+   make kind-port-forward
    ```
+
+### Common Tasks
+
+- View cluster status: `make kind-status`
+- View logs: `make kind-logs`
+- Clean up: `make kind-clean`
+- Delete and recreate the cluster: `make kind-restart`
 
 ## Deployment
 
