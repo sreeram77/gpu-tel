@@ -24,10 +24,20 @@ WORKDIR /app/bin
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates
 
+# Create necessary directories
+RUN mkdir -p /app/api /app/configs /app/swagger
+
 # Copy binary and configs from builder
 COPY --from=builder /app/bin/api-server /app/bin/
 COPY --from=builder /app/api/openapi.yaml /app/api/
 COPY --from=builder /app/configs/ /app/configs/
+
+# Copy Swagger UI files
+COPY --from=builder /app/swagger/ /app/swagger/
+
+# Make sure the swagger.json is accessible
+RUN chmod -R 755 /app/swagger && \
+    chmod 644 /app/api/openapi.yaml
 
 # Expose the port the app runs on
 EXPOSE 8080
