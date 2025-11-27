@@ -333,8 +333,7 @@ kind-delete:
 ## kind-load-images: Load local Docker images into the Kind cluster
 kind-load-images: docker-build
 	@echo "Loading images into Kind cluster..."
-	kind load docker-image $(API_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
-	kind load docker-image $(COLLECTOR_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
+	kind load docker-image $(SINK_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 	kind load docker-image $(MQ_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 	kind load docker-image $(STREAMER_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 

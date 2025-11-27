@@ -31,6 +31,7 @@ RUN mkdir -p /app/configs
 COPY --from=builder /app/bin/sink .
 COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/swagger/ /app/swagger/
+COPY --from=builder /app/api/openapi.yaml /app/api/
 
 # Set environment variables
 ENV CONFIG_FILE=/app/configs/config.yaml

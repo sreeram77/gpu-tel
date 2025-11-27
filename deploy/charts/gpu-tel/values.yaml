@@ -116,7 +116,7 @@ subcharts:
     replicaCount: 1
     service:
       type: ClusterIP
-      port: 8083
+      port: 8080
     serviceAccount:
       create: true
     monitoring:
