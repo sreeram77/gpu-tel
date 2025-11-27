@@ -24,9 +24,10 @@ WORKDIR /app/bin
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates
 
-# Copy binary from builder
+# Copy binary and configs from builder
 COPY --from=builder /app/bin/api-server /app/bin/
-COPY configs/ /app/configs/
+COPY --from=builder /app/api/openapi.yaml /app/api/
+COPY --from=builder /app/configs/ /app/configs/
 
 # Expose the port the app runs on
 EXPOSE 8080

@@ -116,7 +116,7 @@ func (s *Server) registerRoutes() {
 		}
 
 		// Swagger documentation
-		s.router.StaticFile("/swagger.json", "./api/openapi.yaml")
+		s.router.StaticFile("/swagger.json", "/app/api/openapi.yaml")
 		s.router.GET("/docs", func(c *gin.Context) {
 			c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
 		})
