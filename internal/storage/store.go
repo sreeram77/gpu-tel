@@ -60,42 +60,32 @@ func NewPostgresStorage(logger zerolog.Logger, cfg *PostgresConfig) (*PostgresSt
 
 // createTables creates the necessary tables if they don't exist
 func createTables(db *sql.DB) error {
-	// Create GPUs table
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS gpus (
-			id TEXT PRIMARY KEY,
-			gpu_index INTEGER NOT NULL,
-			gpu_name TEXT NOT NULL,
-			memory_total BIGINT NOT NULL,
-			power_limit FLOAT NOT NULL,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_gpus_id ON gpus (id);
-		CREATE INDEX IF NOT EXISTS idx_gpus_gpu_index ON gpus (gpu_index);
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create gpus table: %w", err)
-	}
-
 	// Create telemetry table
-	_, err = db.Exec(`
+	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS gpu_telemetry (
-			id SERIAL PRIMARY KEY,
-			gpu_id TEXT NOT NULL REFERENCES gpus(id) ON DELETE CASCADE,
-			temperature FLOAT NOT NULL,
-			load FLOAT NOT NULL,
-			memory_used BIGINT NOT NULL,
-			power_draw FLOAT NOT NULL,
-			fan_speed FLOAT NOT NULL,
+			id BIGSERIAL PRIMARY KEY,
 			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+			metric_name TEXT NOT NULL,
+			gpu_id TEXT NOT NULL,
+			device TEXT NOT NULL,
+			uuid TEXT NOT NULL,
+			model_name TEXT NOT NULL,
+			hostname TEXT NOT NULL,
+			container TEXT,
+			pod TEXT,
+			namespace TEXT,
+			value DOUBLE PRECISION NOT NULL,
+			labels_raw TEXT,
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		);
 
-		CREATE INDEX IF NOT EXISTS idx_gpu_telemetry_gpu_id ON gpu_telemetry (gpu_id);
-		CREATE INDEX IF NOT EXISTS idx_gpu_telemetry_timestamp ON gpu_telemetry (timestamp);
-		CREATE INDEX IF NOT EXISTS idx_gpu_telemetry_gpu_id_timestamp ON gpu_telemetry (gpu_id, timestamp);
+		-- Indexes for common query patterns
+		CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON gpu_telemetry (timestamp);
+		CREATE INDEX IF NOT EXISTS idx_telemetry_gpu_id ON gpu_telemetry (gpu_id);
+		CREATE INDEX IF NOT EXISTS idx_telemetry_uuid ON gpu_telemetry (uuid);
+		CREATE INDEX IF NOT EXISTS idx_telemetry_metric_name ON gpu_telemetry (metric_name);
+		CREATE INDEX IF NOT EXISTS idx_telemetry_hostname ON gpu_telemetry (hostname);
+		CREATE INDEX IF NOT EXISTS idx_telemetry_composite ON gpu_telemetry (gpu_id, metric_name, timestamp);
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to create gpu_telemetry table: %w", err)
@@ -112,59 +102,42 @@ func (s *PostgresStorage) Store(ctx context.Context, batch telemetry.TelemetryBa
 	}
 	defer tx.Rollback()
 
-	// Prepare statements
-	gpuStmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO gpus (id, gpu_index, gpu_name, memory_total, power_limit, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
-		ON CONFLICT (id) DO UPDATE
-		SET gpu_index = EXCLUDED.gpu_index,
-			gpu_name = EXCLUDED.gpu_name,
-			memory_total = EXCLUDED.memory_total,
-			power_limit = EXCLUDED.power_limit,
-			updated_at = NOW()
-		RETURNING id;
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare GPU statement: %w", err)
-	}
-	defer gpuStmt.Close()
-
-	telemetryStmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO gpu_telemetry 
-		(gpu_id, temperature, load, memory_used, power_draw, fan_speed, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7);
+	// Prepare telemetry statement
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO gpu_telemetry (
+			timestamp, metric_name, gpu_id, device, uuid, 
+			model_name, hostname, container, pod, namespace, 
+			value, labels_raw
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare telemetry statement: %w", err)
 	}
-	defer telemetryStmt.Close()
+	defer stmt.Close()
 
 	// Process each telemetry point in the batch
 	for _, t := range batch.Telemetry {
-		// Insert or update GPU information
-		if _, err := gpuStmt.ExecContext(
+		_, err := stmt.ExecContext(
 			ctx,
-			t.ID,
-			t.GPUIndex,
-			t.GPUName,
-			t.MemoryTotal,
-			t.PowerLimit,
-		); err != nil {
-			return fmt.Errorf("failed to insert/update GPU: %w", err)
-		}
-
-		// Insert telemetry data
-		if _, err := telemetryStmt.ExecContext(
-			ctx,
-			t.ID,
-			t.GPUTemperature,
-			t.GPULoad,
-			t.MemoryUsed,
-			t.PowerDraw,
-			t.FanSpeed,
 			t.Timestamp,
-		); err != nil {
-			return fmt.Errorf("failed to insert telemetry: %w", err)
+			t.MetricName,
+			t.GPUIndex, // Stored as gpu_id in the database
+			t.Device,
+			t.UUID,
+			t.ModelName,
+			t.Hostname,
+			t.Container,
+			t.Pod,
+			t.Namespace,
+			t.Value,
+			t.LabelsRaw,
+		)
+		if err != nil {
+			s.logger.Error().Err(err).
+				Str("uuid", t.UUID).
+				Str("metric", t.MetricName).
+				Msg("failed to insert telemetry")
+			continue
 		}
 	}
 
@@ -184,31 +157,28 @@ func (s *PostgresStorage) GetGPUTelemetry(
 ) ([]telemetry.GPUTelemetry, error) {
 	query := `
 		SELECT 
-			g.id, g.gpu_index, g.gpu_name, 
-			t.temperature, t.load, 
-			t.memory_used, g.memory_total,
-			t.power_draw, g.power_limit,
-			t.fan_speed, t.timestamp
-		FROM gpu_telemetry t
-		JOIN gpus g ON t.gpu_id = g.id
-		WHERE g.id = $1
+			timestamp, metric_name, gpu_id, device, uuid,
+			model_name, hostname, container, pod, namespace,
+			value, labels_raw
+		FROM gpu_telemetry
+		WHERE uuid = $1
 	`
 
 	args := []interface{}{gpuID}
 	argIndex := 2
 
 	if !startTime.IsZero() {
-		query += fmt.Sprintf(" AND t.timestamp >= $%d", argIndex)
+		query += fmt.Sprintf(" AND timestamp >= $%d", argIndex)
 		args = append(args, startTime)
 		argIndex++
 	}
 
 	if !endTime.IsZero() {
-		query += fmt.Sprintf(" AND t.timestamp <= $%d", argIndex)
+		query += fmt.Sprintf(" AND timestamp <= $%d", argIndex)
 		args = append(args, endTime)
 	}
 
-	query += " ORDER BY t.timestamp ASC"
+	query += " ORDER BY timestamp ASC"
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -217,30 +187,26 @@ func (s *PostgresStorage) GetGPUTelemetry(
 	defer rows.Close()
 
 	var result []telemetry.GPUTelemetry
+
 	for rows.Next() {
 		var t telemetry.GPUTelemetry
-		var memoryTotal uint64
-		var powerLimit float64
-
 		err := rows.Scan(
-			&t.ID,
-			&t.GPUIndex,
-			&t.GPUName,
-			&t.GPUTemperature,
-			&t.GPULoad,
-			&t.MemoryUsed,
-			&memoryTotal,
-			&t.PowerDraw,
-			&powerLimit,
-			&t.FanSpeed,
 			&t.Timestamp,
+			&t.MetricName,
+			&t.GPUIndex,
+			&t.Device,
+			&t.UUID,
+			&t.ModelName,
+			&t.Hostname,
+			&t.Container,
+			&t.Pod,
+			&t.Namespace,
+			&t.Value,
+			&t.LabelsRaw,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan telemetry row: %w", err)
 		}
-
-		t.MemoryTotal = memoryTotal
-		t.PowerLimit = powerLimit
 		result = append(result, t)
 	}
 
@@ -252,20 +218,26 @@ func (s *PostgresStorage) GetGPUTelemetry(
 }
 
 // ListGPUs implements Storage.ListGPUs
-func (s *PostgresStorage) ListGPUs(ctx context.Context) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id FROM gpus ORDER BY gpu_index")
+func (s *PostgresStorage) ListGPUs(ctx context.Context) ([]telemetry.GPUTelemetry, error) {
+	query := `
+		SELECT DISTINCT uuid, gpu_id, hostname, model_name 
+		FROM gpu_telemetry 
+		ORDER BY hostname, gpu_id
+	`
+	
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query GPUs: %w", err)
 	}
 	defer rows.Close()
 
-	var gpus []string
+	var gpus []telemetry.GPUTelemetry
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("failed to scan GPU ID: %w", err)
+		var gpu telemetry.GPUTelemetry
+		if err := rows.Scan(&gpu.UUID, &gpu.GPUIndex, &gpu.Hostname, &gpu.ModelName); err != nil {
+			return nil, fmt.Errorf("failed to scan GPU row: %w", err)
 		}
-		gpus = append(gpus, id)
+		gpus = append(gpus, gpu)
 	}
 
 	if err := rows.Err(); err != nil {

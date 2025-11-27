@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpu-tel-postgresql
+  labels:
+    app: gpu-tel-postgresql
+spec:
+  selector:
+    app: gpu-tel-postgresql
+  ports:
+      - port: 5432
+        targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gpu-tel-postgresql
+spec:
+  serviceName: gpu-tel-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gpu-tel-postgresql
+  template:
+    metadata:
+      labels:
+        app: gpu-tel-postgresql
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: mysecretpassword
+        - name: POSTGRES_DB
+          value: gputel
+        volumeMounts:
+        - name: pgdata
+          mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: gpu-tel-postgresql
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gpu-tel-postgresql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

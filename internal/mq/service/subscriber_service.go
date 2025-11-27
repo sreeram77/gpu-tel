@@ -119,12 +119,16 @@ func (s *SubscriberService) Subscribe(stream mqpb.SubscriberService_SubscribeSer
 
 // Acknowledge handles the Acknowledge RPC (client streaming)
 func (s *SubscriberService) Acknowledge(stream mqpb.SubscriberService_AcknowledgeServer) error {
-	// Get peer info for logging
-	peer, _ := peer.FromContext(stream.Context())
-	log := s.logger.With().
-		Str("method", "Acknowledge").
-		Str("peer", peer.Addr.String()).
-		Logger()
+	// Create logger with method field
+	log := s.logger.With().Str("method", "Acknowledge")
+
+	// Add peer info if available
+	if p, ok := peer.FromContext(stream.Context()); ok && p.Addr != nil {
+		log = log.Str("peer", p.Addr.String())
+	}
+
+	// Create the logger instance
+	logger := log.Logger()
 
 	// Track number of processed acknowledgments
 	ackCount := 0
@@ -134,15 +138,15 @@ func (s *SubscriberService) Acknowledge(stream mqpb.SubscriberService_Acknowledg
 		req, err := stream.Recv()
 		if err == io.EOF {
 			// Client is done sending requests
-			log.Info().Int("ack_count", ackCount).Msg("Client finished sending acknowledgments")
+			logger.Info().Int("ack_count", ackCount).Msg("Client finished sending acknowledgments")
 			return stream.SendAndClose(&emptypb.Empty{})
 		}
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to receive acknowledgment request")
+			logger.Error().Err(err).Msg("Failed to receive acknowledgment request")
 			return status.Error(codes.Internal, "failed to receive request")
 		}
 
-		reqLog := log.With().
+		reqLog := logger.With().
 			Str("message_id", req.MessageId).
 			Str("consumer_id", req.ConsumerId).
 			Bool("success", req.Success).
@@ -151,18 +155,18 @@ func (s *SubscriberService) Acknowledge(stream mqpb.SubscriberService_Acknowledg
 		// Validate request
 		if req.MessageId == "" {
 			reqLog.Warn().Msg("Received invalid ack request: message_id is required")
-			continue
+			return status.Error(codes.InvalidArgument, "message_id is required")
 		}
 		if req.ConsumerId == "" {
 			reqLog.Warn().Msg("Received invalid ack request: consumer_id is required")
-			continue
+			return status.Error(codes.InvalidArgument, "consumer_id is required")
 		}
 
 		// Acknowledge the message
 		err = s.messageStore.Acknowledge(stream.Context(), req.MessageId, req.ConsumerId)
 		if err != nil {
 			reqLog.Error().Err(err).Msg("Failed to acknowledge message")
-			continue
+			return status.Error(codes.Internal, "failed to acknowledge message")
 		}
 
 		reqLog.Debug().Msg("Message acknowledged successfully")

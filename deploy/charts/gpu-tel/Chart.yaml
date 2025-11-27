@@ -1,0 +1,21 @@
+apiVersion: v2
+name: gpu-tel
+description: A Helm chart for GPU Telemetry
+version: 0.1.0
+appVersion: "1.0.0"
+type: application
+
+# Dependencies for subcharts
+dependencies:
+  - name: api-server
+    version: 0.1.0
+    repository: file://./charts/api-server
+  - name: mq-service
+    version: 0.1.0
+    repository: file://./charts/mq-service
+  - name: telemetry-collector
+    version: 0.1.0
+    repository: file://./charts/telemetry-collector
+  - name: telemetry-streamer
+    version: 0.1.0
+    repository: file://./charts/telemetry-streamer

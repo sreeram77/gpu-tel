@@ -109,11 +109,13 @@ func NewCollector(logger zerolog.Logger, storage TelemetryStorage, cfg *Collecto
 // Start begins collecting telemetry data
 func (c *Collector) Start(ctx context.Context) error {
 	ctx, c.cancel = context.WithCancel(ctx)
+	errCh := make(chan error, 1)
 
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
-		c.runSubscriptionLoop(ctx)
+		// Forward any errors from runSubscriptionLoop
+		errCh <- c.runSubscriptionLoop(ctx)
 	}()
 
 	c.logger.Info().
@@ -121,20 +123,30 @@ func (c *Collector) Start(ctx context.Context) error {
 		Str("consumer_group", c.config.ConsumerGroup).
 		Msg("Started telemetry collector")
 
-	return nil
+	// Wait for either context cancellation or an error from the subscription loop
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // runSubscriptionLoop continuously processes messages from the subscription
-func (c *Collector) runSubscriptionLoop(ctx context.Context) {
+func (c *Collector) runSubscriptionLoop(ctx context.Context) error {
 	consumerID := fmt.Sprintf("%s-collector", c.config.ConsumerGroup)
 
 	for {
 		select {
 		case <-ctx.Done():
 			c.logger.Info().Msg("Stopping subscription loop due to context cancellation")
-			return
+			return ctx.Err()
 		default:
 			if err := c.processSubscription(ctx, consumerID); err != nil {
+				if ctx.Err() != nil {
+					// If context was canceled, return the context error
+					return ctx.Err()
+				}
 				c.logger.Error().Err(err).Msg("Error in subscription loop")
 				// Add a small delay to prevent tight loop on errors
 				time.Sleep(time.Second)
@@ -295,8 +307,25 @@ func (c *Collector) Stop() error {
 	}
 	c.wg.Wait()
 
+	var errs []error
+
+	// Close the storage connection
+	if c.storage != nil {
+		if err := c.storage.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("error closing storage: %w", err))
+		}
+	}
+
+	// Close the gRPC connection
 	if c.conn != nil {
-		return c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("error closing gRPC connection: %w", err))
+		}
+	}
+
+	// Return the first error if any occurred
+	if len(errs) > 0 {
+		return errs[0]
 	}
 	return nil
 }

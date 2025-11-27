@@ -1,0 +1,42 @@
+replicaCount: 1
+
+image:
+  # For local development, the image name should match the one built by docker-compose or your build script
+  repository: gpu-tel-api
+  pullPolicy: Never  # Always use local image
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 8080
+
+mqService:
+  port: 5672
+
+# Database configuration
+database:
+  host: gpu-tel-postgresql
+  port: 5432
+  name: gputel
+  user: postgres
+  password: postgres
+  sslMode: disable  # For development; use 'require' or 'verify-full' in production
+
+# Additional environment variables
+env: []
+  # - name: ENV_VAR_NAME
+  #   value: value
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

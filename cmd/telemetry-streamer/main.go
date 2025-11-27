@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/sreeram77/gpu-tel/internal/config"
 
 	"github.com/sreeram77/gpu-tel/internal/telemetry"
 )
@@ -18,14 +19,26 @@ func main() {
 	zerolog.TimeFieldFormat = time.RFC3339
 	logger := log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 
-	// Create streamer config
-	streamerCfg := &telemetry.Config{
-		StreamInterval: 5 * time.Second,
-		BatchSize:      10,
+	// Load configuration
+	cfg, err := config.Load("")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to load config")
 	}
 
-	// Message queue server address
-	mqAddr := "localhost:50051" // Default address, can be made configurable
+	// Create streamer config from loaded configuration
+	streamerCfg := &telemetry.Config{
+		StreamInterval: cfg.Telemetry.StreamInterval,
+		BatchSize:      cfg.Telemetry.BatchSize,
+		MetricsPath:    cfg.Telemetry.MetricsPath,
+	}
+
+	logger.Info().
+		Str("metrics_path", streamerCfg.MetricsPath).
+		Dur("stream_interval", streamerCfg.StreamInterval).
+		Int("batch_size", streamerCfg.BatchSize).
+		Msg("Starting telemetry streamer with config")
+
+	mqAddr := cfg.MessageQueue.Address
 
 	// Create telemetry streamer
 	streamer, err := telemetry.NewStreamer(logger, streamerCfg, mqAddr)

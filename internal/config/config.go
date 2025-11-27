@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -95,27 +96,49 @@ type TelemetryConfig struct {
 	MaxRetries     int           `mapstructure:"max_retries"`
 	BatchSize      int           `mapstructure:"batch_size"`
 	MaxQueueSize   int           `mapstructure:"max_queue_size"`
+	MetricsPath    string        `mapstructure:"metrics_path"`
 }
 
-// Load loads configuration from file and environment variables
+// Load loads configuration from file and environment variables.
+// If configPath is provided, it will be used to load the configuration from that specific file.
+// Otherwise, it will look for config.yaml in standard locations.
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
-	// Set the base name of the config file (without extension)
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
-	v.AddConfigPath("./configs")
-	v.AddConfigPath("../configs")
-	v.AddConfigPath("../../configs")
-
-	// Read the config file
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	// Read environment variables with the prefix "GPUTEL_"
+	// Set up environment variables
 	v.SetEnvPrefix("GPUTEL")
 	v.AutomaticEnv()
+
+	// Enable environment variable binding
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// Set default values
+	setDefaults(v)
+
+	// If a config path is provided, use that
+	if configPath != "" {
+		v.SetConfigFile(configPath)
+	} else {
+		// Otherwise look for config.yaml in standard locations
+		v.SetConfigName("config")
+		v.SetConfigType("yaml")
+		v.AddConfigPath("./configs")
+		v.AddConfigPath("../configs")
+		v.AddConfigPath("../../configs")
+	}
+
+	// Read the config file if it exists
+	err := v.ReadInConfig()
+	if err != nil {
+		// If we have a specific config path and it doesn't exist, return error
+		if configPath != "" {
+			return nil, fmt.Errorf("failed to read config file: %w", err)
+		}
+		// For default config paths, it's okay if no config file is found
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, fmt.Errorf("error reading config file: %w", err)
+		}
+	}
 
 	// Unmarshal the config into the Config struct
 	var cfg Config
@@ -124,4 +147,57 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// setDefaults sets default values for the configuration
+func setDefaults(v *viper.Viper) {
+	// Set default values for the config
+	v.SetDefault("app.name", "gpu-tel")
+	v.SetDefault("app.env", "development")
+	v.SetDefault("app.version", "0.1.0")
+
+	// Server defaults
+	v.SetDefault("server.http.port", 8080)
+	v.SetDefault("server.http.read_timeout", 30*time.Second)
+	v.SetDefault("server.http.write_timeout", 30*time.Second)
+	v.SetDefault("server.grpc.port", 50051)
+	v.SetDefault("server.grpc.timeout", 10*time.Second)
+
+	// Message queue defaults
+	v.SetDefault("message_queue.address", "localhost:50051")
+
+	// Storage defaults
+	v.SetDefault("storage.type", "postgres")
+	v.SetDefault("storage.postgres.host", "localhost")
+	v.SetDefault("storage.postgres.port", 5432)
+	v.SetDefault("storage.postgres.user", "postgres")
+	v.SetDefault("storage.postgres.password", "mysecretpassword")
+	v.SetDefault("storage.postgres.dbname", "gputel")
+	v.SetDefault("storage.postgres.sslmode", "disable")
+
+	// Log defaults
+	v.SetDefault("log.level", "debug")
+	v.SetDefault("log.format", "json")
+	v.SetDefault("log.file", "logs/app.log")
+
+	// Telemetry defaults
+	v.SetDefault("telemetry.stream_interval", 5*time.Second)
+	v.SetDefault("telemetry.max_retries", 3)
+	v.SetDefault("telemetry.batch_size", 100)
+	v.SetDefault("telemetry.max_queue_size", 1000)
+	v.SetDefault("telemetry.metrics_path", "/app/test-data/metrics.csv")
+
+	// Database defaults
+	v.SetDefault("database.host", "localhost")
+	v.SetDefault("database.port", 5432)
+	v.SetDefault("database.user", "gputel")
+	v.SetDefault("database.password", "password")
+	v.SetDefault("database.dbname", "gputel")
+	v.SetDefault("database.sslmode", "disable")
+
+	// Collector defaults
+	v.SetDefault("collector.batch_size", 100)
+	v.SetDefault("collector.max_in_flight", 1000)
+	v.SetDefault("collector.ack_timeout_seconds", 30)
+	v.SetDefault("collector.worker_count", 1)
 }

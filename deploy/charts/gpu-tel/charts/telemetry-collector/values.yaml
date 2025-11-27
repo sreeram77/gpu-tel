@@ -1,0 +1,42 @@
+replicaCount: 1
+
+image:
+  repository: gpu-tel-collector
+  pullPolicy: Never  # Always use local image for development
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 8081
+
+# MQ Service configuration
+mqService:
+  port: 5672
+
+# Database configuration
+database:
+  host: gpu-tel-postgresql
+  port: 5432
+  name: gputel
+  user: postgres
+  password: postgres
+  sslMode: disable  # For development; use 'require' or 'verify-full' in production
+
+# Additional environment variables
+env: []
+  # - name: ENV_VAR_NAME
+  #   value: value
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

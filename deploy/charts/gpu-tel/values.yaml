@@ -1,0 +1,239 @@
+# Global variables
+global:
+  # Default namespace for all resources
+  namespace: gpu-tel
+  
+  image:
+    repository: localhost:5000/gpu-tel  # Using local registry
+    pullPolicy: Never  # For local development with minikube
+    # Tag will be set to 'latest' for local development
+    tag: latest
+
+  # Common labels to add to all resources
+  commonLabels:
+    app.kubernetes.io/part-of: gpu-tel
+    app.kubernetes.io/managed-by: helm
+
+  # Common annotations to add to all resources
+  commonAnnotations: {}
+
+  # Security context for pods
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 2000
+
+  # Resource defaults
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Subchart configurations
+subcharts:
+  api-server:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 8080
+    serviceAccount:
+      create: true
+    monitoring:
+      enabled: true
+      path: /metrics
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  mq-service:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 5672  # Default AMQP port
+    serviceAccount:
+      create: true
+    persistence:
+      enabled: true
+      size: 1Gi
+      accessMode: ReadWriteOnce
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  telemetry-collector:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 8081
+    serviceAccount:
+      create: true
+    monitoring:
+      enabled: true
+      path: /metrics
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  telemetry-streamer:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 8082
+    serviceAccount:
+      create: true
+    monitoring:
+      enabled: true
+      path: /metrics
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  postgresql:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: library/postgres
+      tag: '15-alpine'
+      pullPolicy: IfNotPresent
+
+    # PostgreSQL superuser credentials
+    auth:
+      postgresPassword: "postgres"
+      username: "postgres"
+      password: "postgres"
+      database: "gputel"
+      
+    # Persistent volume configuration
+    primary:
+      persistence:
+        enabled: true
+        size: 10Gi
+        accessModes:
+          - ReadWriteOnce
+    
+    # Resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 5432
+      
+    # Enable metrics
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  # Use the global namespace
+  namespace: monitoring
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Pod Disruption Budget configuration
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# Network Policy configuration
+networkPolicy:
+  enabled: true
+  allowAll: false
+  allowNamespaces: []
+  allowLabels: {}
+
+# Affinity configuration
+affinity: {}
+
+# Tolerations for node taints
+tolerations: []
+
+# Node selector for pod assignment
+nodeSelector: {}
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext: {}
+
+# Container security context
+containerSecurityContext: {}
+
+# Service account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod management policy for StatefulSets
+podManagementPolicy: OrderedReady
+
+# Update strategy for Deployments and StatefulSets
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+# Pod topology spread constraints
+topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: topology.kubernetes.io/zone
+  #   whenUnsatisfiable: ScheduleAnyway
+  #   labelSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: my-app

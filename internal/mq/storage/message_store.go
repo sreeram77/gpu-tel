@@ -127,7 +127,6 @@ func (s *InMemoryStore) Delete(ctx context.Context, id string) error {
 // Subscribe returns a channel that receives messages for the given topic
 func (s *InMemoryStore) Subscribe(ctx context.Context, topic string) (<-chan *mq.Message, error) {
 	s.Lock()
-	defer s.Unlock()
 
 	// Create channel for this subscription
 	ch := make(chan *mq.Message, 100) // Buffered channel to prevent blocking
@@ -139,13 +138,18 @@ func (s *InMemoryStore) Subscribe(ctx context.Context, topic string) (<-chan *mq
 
 	// Add channel to subscriptions
 	s.subscribers[topic][ch] = true
+	s.Unlock()
 
 	// Start a goroutine to clean up when the context is done
 	go func() {
 		<-ctx.Done()
 		s.Lock()
-		delete(s.subscribers[topic], ch)
-		close(ch)
+		if chMap, ok := s.subscribers[topic]; ok {
+			if _, chExists := chMap[ch]; chExists {
+				delete(chMap, ch)
+				close(ch)
+			}
+		}
 		s.Unlock()
 	}()
 
