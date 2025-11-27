@@ -116,10 +116,14 @@ func parseTimeRange(c *gin.Context) (time.Time, time.Time, error) {
 	defaultStart := now.Add(-24 * time.Hour) // Default to last 24 hours
 
 	// Parse start time
-	startTimeStr := c.DefaultQuery("start", "")
+	startTimeStr := c.DefaultQuery("start_time", "")
+	if startTimeStr == "" {
+		// Fallback to 'start' for backward compatibility
+		startTimeStr = c.DefaultQuery("start", "")
+	}
 	startTime, err := parseTimeParam(startTimeStr)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid start time: %v", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start_time: %v", err)
 	}
 	if startTime == nil {
 		t := defaultStart
@@ -127,10 +131,14 @@ func parseTimeRange(c *gin.Context) (time.Time, time.Time, error) {
 	}
 
 	// Parse end time
-	endTimeStr := c.DefaultQuery("end", "")
+	endTimeStr := c.DefaultQuery("end_time", "")
+	if endTimeStr == "" {
+		// Fallback to 'end' for backward compatibility
+		endTimeStr = c.DefaultQuery("end", "")
+	}
 	endTime, err := parseTimeParam(endTimeStr)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid end time: %v", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end_time: %v", err)
 	}
 	if endTime == nil {
 		t := now
