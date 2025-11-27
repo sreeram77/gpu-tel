@@ -144,10 +144,24 @@ func TestPostgresStorage(t *testing.T) {
 		t.Run("ListGPUs", func(t *testing.T) {
 			gpus, err := store.ListGPUs(context.Background())
 			assert.NoError(t, err)
-			// The ListGPUs function returns formatted strings like: "{hostname} - GPU {gpuID} ({model}) - {uuid}"
-			expectedGPU := fmt.Sprintf("%s - GPU %s (%s) - %s", 
-				"test-host", gpuID, "NVIDIA A100-SXM4-40GB", "GPU-12345678-90ab-cdef-ghij-klmnopqrstuv")
-			assert.Contains(t, gpus, expectedGPU, "Should contain the test GPU")
+			
+			// Verify we got at least one GPU
+			assert.Greater(t, len(gpus), 0, "Should return at least one GPU")
+			
+			// Find the test GPU in the results
+			found := false
+			expectedUUID := "GPU-12345678-90ab-cdef-ghij-klmnopqrstuv"
+			expectedModel := "NVIDIA A100-SXM4-40GB"
+			expectedHostname := "test-host"
+			
+			for _, gpu := range gpus {
+				if gpu.UUID == expectedUUID && gpu.ModelName == expectedModel && gpu.Hostname == expectedHostname {
+					found = true
+					break
+				}
+			}
+			
+			assert.True(t, found, "Should contain the test GPU with expected details")
 		})
 
 		// Test with non-existent GPU

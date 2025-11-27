@@ -25,9 +25,9 @@ func (m *MockStorage) Store(ctx context.Context, batch TelemetryBatch) error {
 	return args.Error(0)
 }
 
-func (m *MockStorage) ListGPUs(ctx context.Context) ([]string, error) {
+func (m *MockStorage) ListGPUs(ctx context.Context) ([]GPUTelemetry, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]string), args.Error(1)
+	return args.Get(0).([]GPUTelemetry), args.Error(1)
 }
 
 func (m *MockStorage) GetGPUTelemetry(ctx context.Context, gpuID string, start, end time.Time) ([]GPUTelemetry, error) {

@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -44,31 +43,22 @@ type ErrorResponse struct {
 
 // listGPUs handles GET /gpus
 func (s *Server) listGPUs(c *gin.Context) {
-	gpuIDs, err := s.storage.ListGPUs(c.Request.Context())
+	gpuTelemetry, err := s.storage.ListGPUs(c.Request.Context())
 	if err != nil {
 		sendError(c, http.StatusInternalServerError, "Failed to list GPUs", err.Error())
 		return
 	}
 
-	gpus := make([]GPU, 0, len(gpuIDs))
-	for _, id := range gpuIDs {
-		// Format: "{hostname} - GPU {id} ({model}) - {uuid}"
-		parts := strings.SplitN(id, " - ", 4)
-		if len(parts) != 4 {
-			continue
-		}
-
-		hostname := parts[0]
-		gpuID := strings.TrimPrefix(parts[1], "GPU ")
-		modelName := strings.TrimSuffix(strings.TrimPrefix(parts[2], "("), ")")
-		uuid := parts[3]
-
+	gpus := make([]GPU, 0, len(gpuTelemetry))
+	for _, gpu := range gpuTelemetry {
 		gpus = append(gpus, GPU{
-			UUID:      uuid,
-			GPUIndex:  gpuID,
-			ModelName: modelName,
-			Hostname:  hostname,
-			FirstSeen: time.Now().Add(-24 * time.Hour),
+			UUID:      gpu.UUID,
+			GPUIndex:  gpu.GPUIndex,
+			ModelName: gpu.ModelName,
+			Hostname:  gpu.Hostname,
+			// Set default values for fields not directly mapped
+			Device:    gpu.Device,
+			FirstSeen: time.Now(), // TODO: Consider adding first_seen to the database schema
 		})
 	}
 

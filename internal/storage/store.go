@@ -218,7 +218,7 @@ func (s *PostgresStorage) GetGPUTelemetry(
 }
 
 // ListGPUs implements Storage.ListGPUs
-func (s *PostgresStorage) ListGPUs(ctx context.Context) ([]string, error) {
+func (s *PostgresStorage) ListGPUs(ctx context.Context) ([]telemetry.GPUTelemetry, error) {
 	query := `
 		SELECT DISTINCT uuid, gpu_id, hostname, model_name 
 		FROM gpu_telemetry 
@@ -231,15 +231,13 @@ func (s *PostgresStorage) ListGPUs(ctx context.Context) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var gpus []string
+	var gpus []telemetry.GPUTelemetry
 	for rows.Next() {
-		var uuid, gpuID, hostname, modelName string
-		if err := rows.Scan(&uuid, &gpuID, &hostname, &modelName); err != nil {
+		var gpu telemetry.GPUTelemetry
+		if err := rows.Scan(&gpu.UUID, &gpu.GPUIndex, &gpu.Hostname, &gpu.ModelName); err != nil {
 			return nil, fmt.Errorf("failed to scan GPU row: %w", err)
 		}
-		// Format: "{hostname} - GPU {id} ({model}) - {uuid}"
-		gpus = append(gpus, fmt.Sprintf("%s - GPU %s (%s) - %s", 
-			hostname, gpuID, modelName, uuid))
+		gpus = append(gpus, gpu)
 	}
 
 	if err := rows.Err(); err != nil {

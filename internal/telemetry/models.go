@@ -51,8 +51,8 @@ type TelemetryStorage interface {
 	Store(ctx context.Context, batch TelemetryBatch) error
 	// GetGPUTelemetry retrieves telemetry data for a specific GPU
 	GetGPUTelemetry(ctx context.Context, gpuID string, startTime, endTime time.Time) ([]GPUTelemetry, error)
-	// ListGPUs lists all available GPUs with telemetry data
-	ListGPUs(ctx context.Context) ([]string, error)
+	// ListGPUs lists all available GPUs with their telemetry data
+	ListGPUs(ctx context.Context) ([]GPUTelemetry, error)
 	// Close closes the storage connection
 	Close() error
 }
