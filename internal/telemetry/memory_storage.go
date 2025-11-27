@@ -10,16 +10,16 @@ import (
 // MemoryStorage is an in-memory implementation of TelemetryStorage
 // It's safe for concurrent use by multiple goroutines
 type MemoryStorage struct {
-	mu         sync.RWMutex
-	telemetry  []GPUTelemetry
-	gpuIndexes map[string]struct{}
+	mu        sync.RWMutex
+	gpus      map[string]GPU
+	telemetry map[string][]GPUTelemetry
 }
 
 // NewMemoryStorage creates a new in-memory storage instance
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		telemetry:  make([]GPUTelemetry, 0),
-		gpuIndexes: make(map[string]struct{}),
+		gpus:      make(map[string]GPU),
+		telemetry: make(map[string][]GPUTelemetry),
 	}
 }
 
@@ -29,8 +29,15 @@ func (m *MemoryStorage) Store(ctx context.Context, batch TelemetryBatch) error {
 	defer m.mu.Unlock()
 
 	for _, t := range batch.Telemetry {
-		m.telemetry = append(m.telemetry, t)
-		m.gpuIndexes[t.GPUIndex] = struct{}{}
+		// Store UUID in gpus map
+		m.gpus[t.UUID] = GPU{
+			UUID:     t.UUID,
+			GPUIndex: t.GPUIndex,
+			Device:   t.Device,
+			Hostname: t.Hostname,
+		}
+		// Append telemetry data for this UUID
+		m.telemetry[t.UUID] = append(m.telemetry[t.UUID], t)
 	}
 
 	return nil
@@ -42,9 +49,11 @@ func (m *MemoryStorage) GetGPUTelemetry(ctx context.Context, gpuID string, start
 	defer m.mu.RUnlock()
 
 	var result []GPUTelemetry
-	for _, t := range m.telemetry {
-		if t.GPUIndex == gpuID && !t.Timestamp.Before(startTime) && !t.Timestamp.After(endTime) {
-			result = append(result, t)
+	if telemetry, exists := m.telemetry[gpuID]; exists {
+		for _, t := range telemetry {
+			if !t.Timestamp.Before(startTime) && !t.Timestamp.After(endTime) {
+				result = append(result, t)
+			}
 		}
 	}
 
@@ -56,24 +65,15 @@ func (m *MemoryStorage) GetGPUTelemetry(ctx context.Context, gpuID string, start
 	return result, nil
 }
 
-// ListGPUs lists all available GPUs with their telemetry data
-func (m *MemoryStorage) ListGPUs(ctx context.Context) ([]GPUTelemetry, error) {
+// ListGPUs returns a list of GPU UUIDs that have telemetry data
+func (m *MemoryStorage) ListGPUs(ctx context.Context) ([]GPU, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Use a map to store the most recent telemetry for each GPU
-	latestTelemetry := make(map[string]GPUTelemetry)
+	var result []GPU
 
-	for _, t := range m.telemetry {
-		if existing, exists := latestTelemetry[t.GPUIndex]; !exists || t.Timestamp.After(existing.Timestamp) {
-			latestTelemetry[t.GPUIndex] = t
-		}
-	}
-
-	// Convert map to slice
-	result := make([]GPUTelemetry, 0, len(latestTelemetry))
-	for _, t := range latestTelemetry {
-		result = append(result, t)
+	for _, gpu := range m.gpus {
+		result = append(result, gpu)
 	}
 
 	return result, nil
@@ -85,8 +85,8 @@ func (m *MemoryStorage) Close() error {
 	defer m.mu.Unlock()
 
 	// Clear all data
-	m.telemetry = nil
-	m.gpuIndexes = make(map[string]struct{})
+	m.gpus = make(map[string]GPU)
+	m.telemetry = make(map[string][]GPUTelemetry)
 	return nil
 }
 

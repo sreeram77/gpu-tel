@@ -206,7 +206,7 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 
 		// Create telemetry data using the GPUTelemetry struct
 		telemetry := GPUTelemetry{
-			Timestamp:  time.Now(),
+			Timestamp:  time.Now().UTC(),
 			MetricName: metric.MetricName,
 			GPUIndex:   metric.GPUIndex, // Keep as string to match struct
 			Device:     metric.Device,

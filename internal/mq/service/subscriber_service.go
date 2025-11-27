@@ -104,6 +104,8 @@ func (s *SubscriberService) Subscribe(stream mqpb.SubscriberService_SubscribeSer
 	for {
 		select {
 		case msg := <-messageChan:
+			s.logger.Debug().Msg("Sending to subscriber")
+
 			// Send the message
 			if err := stream.Send(&mqpb.SubscribeResponse{
 				Messages: []*mqpb.Message{msg},

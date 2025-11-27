@@ -19,12 +19,6 @@ func main() {
 		Timestamp().
 		Logger()
 
-	// Load configuration
-	cfg, err := config.Load("")
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to load configuration")
-	}
-
 	// Initialize in-memory storage
 	memStorage := telemetry.NewMemoryStorage()
 	defer memStorage.Close()
