@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/sreeram77/gpu-tel/internal/config"
-	"github.com/sreeram77/gpu-tel/internal/storage"
 	"github.com/sreeram77/gpu-tel/internal/telemetry"
 )
 
@@ -28,22 +27,12 @@ func main() {
 		logger.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
-	// Initialize PostgreSQL storage
-	pgStorage, err := storage.NewPostgresStorage(logger, &storage.PostgresConfig{
-		Host:     cfg.Database.Host,
-		Port:     cfg.Database.Port,
-		User:     cfg.Database.User,
-		Password: cfg.Database.Password,
-		DBName:   cfg.Database.DBName,
-		SSLMode:  cfg.Database.SSLMode,
-	})
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize PostgreSQL storage")
-	}
-	defer pgStorage.Close()
+	// Initialize in-memory storage
+	memStorage := telemetry.NewMemoryStorage()
+	defer memStorage.Close()
 
-	// Initialize collector with PostgreSQL storage
-	collector, err := telemetry.NewCollector(logger, pgStorage, &telemetry.CollectorConfig{
+	// Initialize collector with in-memory storage
+	collector, err := telemetry.NewCollector(logger, memStorage, &telemetry.CollectorConfig{
 		MQAddr:            cfg.MessageQueue.Address,
 		Topic:             "gpu_metrics",
 		ConsumerGroup:     "gpu-collector",

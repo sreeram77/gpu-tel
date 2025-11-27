@@ -9,8 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sreeram77/gpu-tel/internal/api"
-	"github.com/sreeram77/gpu-tel/internal/storage"
-	"github.com/sreeram77/gpu-tel/internal/config"
+	"github.com/sreeram77/gpu-tel/internal/telemetry"
 )
 
 func main() {
@@ -26,22 +25,12 @@ func main() {
 		logger.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
-	// Initialize PostgreSQL storage
-	pgStorage, err := storage.NewPostgresStorage(logger, &storage.PostgresConfig{
-		Host:     cfg.Database.Host,
-		Port:     cfg.Database.Port,
-		User:     cfg.Database.User,
-		Password: cfg.Database.Password,
-		DBName:   cfg.Database.DBName,
-		SSLMode:  cfg.Database.SSLMode,
-	})
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize PostgreSQL storage")
-	}
-	defer pgStorage.Close()
+	// Initialize in-memory storage
+	memStorage := telemetry.NewMemoryStorage()
+	defer memStorage.Close()
 
 	// Create and start API server
-	server := api.NewServer(logger, pgStorage)
+	server := api.NewServer(logger, memStorage)
 
 	// Create a context that listens for the interrupt signal
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

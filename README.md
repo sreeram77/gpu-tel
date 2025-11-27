@@ -62,15 +62,9 @@ The system consists of several microservices:
    cd gpu-tel
    ```
 
-2. Start dependencies:
+2. Build and run services:
    ```bash
-   docker-compose up -d postgres
-   ```
-
-3. Build and run services:
-   ```bash
-   make build
-   make run
+   make kind-all
    ```
 
 ### Configuration
