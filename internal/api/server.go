@@ -119,14 +119,11 @@ func (s *Server) registerRoutes() {
 	// API Documentation Endpoints
 	// 1. Raw OpenAPI YAML specification
 	s.router.GET("/openapi.yaml", func(c *gin.Context) {
-		c.File("./api/openapi.yaml")
+		c.File("/api/openapi.yaml")
 	})
 
 	// 2. Swagger UI - SPA for API documentation
-	s.router.Static("/swagger", "./swagger")
-	s.router.GET("/swagger/", func(c *gin.Context) {
-		c.File("./swagger/index.html")
-	})
+	s.router.Static("/swagger", "/app/swagger")
 }
 
 // healthCheck handles the health check endpoint
