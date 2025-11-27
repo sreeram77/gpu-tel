@@ -12,8 +12,7 @@ GOTOOL=$(GOCMD) tool
 # Binary names
 MQ_SERVICE_BIN=mq-service
 STREAMER_BIN=telemetry-streamer
-COLLECTOR_BIN=telemetry-collector
-API_SERVER_BIN=api-server
+SINK_BIN=sink
 
 # Directories
 BIN_DIR=bin
@@ -27,13 +26,6 @@ GOBUILD_CMD=$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$@ ./cmd/$@
 # Default port for API server
 API_PORT?=8080
 
-# Database configuration
-DB_HOST?=localhost
-DB_PORT?=5432
-DB_NAME?=gputel
-DB_USER?=postgres
-DB_PASSWORD?=postgres
-DB_SSLMODE?=disable
 
 # Docker parameters
 DOCKER_CMD=docker
@@ -54,8 +46,7 @@ HELM_NAMESPACE?=gpu-tel
 HELM_RELEASE_NAME?=gpu-tel
 HELM_CHART=./deploy/charts/gpu-tel
 STREAMER_IMAGE_NAME=gpu-tel-streamer
-COLLECTOR_IMAGE_NAME=gpu-tel-collector
-API_IMAGE_NAME=gpu-tel-api
+SINK_IMAGE_NAME=gpu-tel-sink
 
 # Image tags for local development
 IMAGE_TAG?=latest
@@ -204,34 +195,29 @@ format:
 	@$(GOCMD) vet ./...
 
 # Build individual Docker images
-docker-build-api:
-	$(DOCKER_CMD) build -t $(API_IMAGE_NAME):$(VERSION) -f cmd/api-server/Dockerfile .
-
 docker-build-mq:
 	$(DOCKER_CMD) build -t $(MQ_IMAGE_NAME):$(VERSION) -f cmd/mq-service/Dockerfile .
-
-docker-build-collector:
-	$(DOCKER_CMD) build -t $(COLLECTOR_IMAGE_NAME):$(VERSION) -f cmd/telemetry-collector/Dockerfile .
 
 docker-build-streamer:
 	$(DOCKER_CMD) build -t $(STREAMER_IMAGE_NAME):$(VERSION) -f cmd/telemetry-streamer/Dockerfile .
 
+docker-build-sink:
+	$(DOCKER_CMD) build -t $(SINK_IMAGE_NAME):$(VERSION) -f cmd/sink/Dockerfile .
+
 # Build all Docker images
-docker-build: docker-build-api docker-build-mq docker-build-collector docker-build-streamer
+docker-build: docker-build-mq docker-build-streamer docker-build-sink
 
 # Tag images for local registry
 docker-tag:
-	$(DOCKER_CMD) tag $(API_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(API_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) tag $(MQ_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
-	$(DOCKER_CMD) tag $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) tag $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) tag $(SINK_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(SINK_IMAGE_NAME):$(IMAGE_TAG)
 
 # Push images to local registry
 docker-push:
-	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(API_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
-	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(SINK_IMAGE_NAME):$(IMAGE_TAG)
 # Helm commands
 helm-deps:
 	helm dependency update $(HELM_CHART)
@@ -240,9 +226,8 @@ helm-install: helm-deps
 	helm upgrade --install $(HELM_RELEASE_NAME) $(HELM_CHART) \
 		--namespace $(HELM_NAMESPACE) \
 		--create-namespace \
-		--set api-server.image.repository=$(API_IMAGE_NAME) \
 		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
-		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set sink.image.repository=$(SINK_IMAGE_NAME) \
 		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
 		--set global.image.tag=$(VERSION) \
 		--set global.image.pullPolicy=Never
@@ -256,9 +241,8 @@ helm-status:
 helm-template:
 	helm template $(HELM_RELEASE_NAME) $(HELM_CHART) \
 		--namespace $(HELM_NAMESPACE) \
-		--set api-server.image.repository=$(API_IMAGE_NAME) \
 		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
-		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set sink.image.repository=$(SINK_IMAGE_NAME) \
 		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
 		--set global.image.tag=$(VERSION) \
 		--set global.image.pullPolicy=Never
@@ -358,7 +342,6 @@ kind-load-images: docker-build
 kind-clean:
 	@echo "Cleaning up Kind cluster resources..."
 	-helm uninstall $(HELM_RELEASE_NAME) -n $(HELM_NAMESPACE) 2>/dev/null || true
-	-kubectl delete pvc -l app.kubernetes.io/name=postgresql -n $(HELM_NAMESPACE) 2>/dev/null || true
 	-kubectl delete namespace $(HELM_NAMESPACE) 2>/dev/null || true
 
 ## kind-status: Show status of the deployed application

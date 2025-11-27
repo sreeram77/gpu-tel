@@ -1,0 +1,33 @@
+replicaCount: 1
+
+image:
+  repository: gpu-tel-sink
+  pullPolicy: Never  # Always use local image for development
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 8083
+
+# MQ Service configuration
+mqService:
+  port: 5672
+
+# Additional environment variables
+env: []
+  # - name: ENV_VAR_NAME
+  #   value: value
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

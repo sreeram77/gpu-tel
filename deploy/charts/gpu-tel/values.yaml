@@ -35,7 +35,7 @@ global:
 # Subchart configurations
 subcharts:
   api-server:
-    enabled: true
+    enabled: false
     replicaCount: 1
     service:
       type: ClusterIP
@@ -74,7 +74,7 @@ subcharts:
         memory: 512Mi
 
   telemetry-collector:
-    enabled: true
+    enabled: false
     replicaCount: 1
     service:
       type: ClusterIP
@@ -111,8 +111,27 @@ subcharts:
         cpu: 500m
         memory: 256Mi
 
-  postgresql:
+  sink:
     enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 8083
+    serviceAccount:
+      create: true
+    monitoring:
+      enabled: true
+      path: /metrics
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  postgresql:
+    enabled: false
     image:
       registry: docker.io
       repository: library/postgres

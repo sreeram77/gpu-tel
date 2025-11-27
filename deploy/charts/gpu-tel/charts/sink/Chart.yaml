@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sink
+description: A Helm chart for GPU Telemetry Sink
+version: 0.1.0
+appVersion: "1.0.0"
+type: application
