@@ -15,7 +15,7 @@ type GPU struct {
 	Device    string    `json:"device"`
 	ModelName string    `json:"model_name"`
 	Hostname  string    `json:"hostname"`
-	FirstSeen time.Time `json:"first_seen"`
+	TimeStamp time.Time `json:"timestamp"`
 }
 
 // Telemetry represents a telemetry data point for a GPU
@@ -58,7 +58,7 @@ func (s *Server) listGPUs(c *gin.Context) {
 			Hostname:  gpu.Hostname,
 			// Set default values for fields not directly mapped
 			Device:    gpu.Device,
-			FirstSeen: time.Now(), // TODO: Consider adding first_seen to the database schema
+			TimeStamp: gpu.Timestamp,
 		})
 	}
 
