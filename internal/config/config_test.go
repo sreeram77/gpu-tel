@@ -11,7 +11,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func clearEnvVars() {
+	// Clear all environment variables that might affect the test
+	// Standard environment variables
+	os.Unsetenv("APP_NAME")
+	os.Unsetenv("APP_ENV")
+	os.Unsetenv("APP_VERSION")
+	os.Unsetenv("SERVER_HTTP_PORT")
+	os.Unsetenv("SERVER_GRPC_PORT")
+	os.Unsetenv("MESSAGE_QUEUE_ADDRESS")
+	os.Unsetenv("STORAGE_POSTGRES_HOST")
+	os.Unsetenv("STORAGE_POSTGRES_PORT")
+	os.Unsetenv("STORAGE_POSTGRES_USER")
+	os.Unsetenv("STORAGE_POSTGRES_PASSWORD")
+	os.Unsetenv("STORAGE_POSTGRES_DBNAME")
+	os.Unsetenv("STORAGE_POSTGRES_SSLMODE")
+	os.Unsetenv("DATABASE_HOST")
+	os.Unsetenv("DATABASE_PORT")
+	os.Unsetenv("DATABASE_USER")
+	os.Unsetenv("DATABASE_PASSWORD")
+	os.Unsetenv("DATABASE_DBNAME")
+	os.Unsetenv("DATABASE_SSLMODE")
+
+	// GPUTEL_ prefixed environment variables
+	os.Unsetenv("GPUTEL_MESSAGE_QUEUE_ADDRESS")
+	os.Unsetenv("GPUTEL_STORAGE_POSTGRES_HOST")
+	os.Unsetenv("GPUTEL_STORAGE_POSTGRES_PORT")
+	os.Unsetenv("GPUTEL_STORAGE_POSTGRES_USER")
+	os.Unsetenv("GPUTEL_STORAGE_POSTGRES_PASSWORD")
+	os.Unsetenv("GPUTEL_STORAGE_POSTGRES_DBNAME")
+	os.Unsetenv("GPUTEL_STORAGE_POSTGRES_SSLMODE")
+	os.Unsetenv("GPUTEL_DATABASE_HOST")
+	os.Unsetenv("GPUTEL_DATABASE_PORT")
+	os.Unsetenv("GPUTEL_DATABASE_USER")
+	os.Unsetenv("GPUTEL_DATABASE_PASSWORD")
+	os.Unsetenv("GPUTEL_DATABASE_DBNAME")
+	os.Unsetenv("GPUTEL_DATABASE_SSLMODE")
+}
+
 func TestLoadConfig(t *testing.T) {
+	// Clear environment variables before running tests
+	clearEnvVars()
+	
+	// Set an empty config path to prevent loading from default locations
+	os.Setenv("CONFIG_PATH", "/nonexistent")
 	tests := []struct {
 		name        string
 		setup       func() (string, func())
@@ -28,9 +71,9 @@ func TestLoadConfig(t *testing.T) {
 				// Create a test config file
 				configContent := `
 app:
-  name: "gpu-tel-test"
-  env: "test"
-  version: "1.0.0"
+  name: "gpu-tel"
+  env: "development"
+  version: "0.1.0"
 
 server:
   http:
@@ -91,8 +134,8 @@ collector:
 				},
 				Server: ServerConfig{
 					HTTP: HTTPServerConfig{
-						Port:         8080,
-						ReadTimeout:  30 * time.Second,
+						Port:        8080,
+						ReadTimeout: 30 * time.Second,
 						WriteTimeout: 30 * time.Second,
 					},
 					GRPC: GRPCServerConfig{
@@ -101,12 +144,12 @@ collector:
 					},
 				},
 				MessageQueue: MessageQueueConfig{
-					Address: "localhost:50051",
+					Address: "gpu-tel-mq-service:50051",
 				},
 				Storage: StorageConfig{
 					Type: "postgres",
 					Postgres: PostgresConfig{
-						Host:     "localhost",
+						Host:     "gpu-tel-postgresql",
 						Port:     5432,
 						User:     "postgres",
 						Password: "mysecretpassword",
@@ -124,12 +167,13 @@ collector:
 					MaxRetries:     3,
 					BatchSize:      100,
 					MaxQueueSize:   1000,
+					MetricsPath:    "/app/test-data/metrics.csv",
 				},
 				Database: DatabaseConfig{
-					Host:     "localhost",
+					Host:     "gpu-tel-postgresql",
 					Port:     5432,
-					User:     "gputel",
-					Password: "password",
+					User:     "postgres",
+					Password: "mysecretpassword",
 					DBName:   "gputel",
 					SSLMode:  "disable",
 				},
@@ -149,7 +193,7 @@ collector:
 				// Return empty string to indicate no config file
 				return "", func() {}
 			},
-			expected: &Config{
+				expected: &Config{
 				App: AppConfig{
 					Name:    "gpu-tel",
 					Env:     "development",
@@ -167,12 +211,12 @@ collector:
 					},
 				},
 				MessageQueue: MessageQueueConfig{
-					Address: "localhost:50051",
+					Address: "gpu-tel-mq-service:50051",
 				},
 				Storage: StorageConfig{
 					Type: "postgres",
 					Postgres: PostgresConfig{
-						Host:     "localhost",
+						Host:     "gpu-tel-postgresql",
 						Port:     5432,
 						User:     "postgres",
 						Password: "mysecretpassword",
@@ -190,12 +234,13 @@ collector:
 					MaxRetries:     3,
 					BatchSize:      100,
 					MaxQueueSize:   1000,
+					MetricsPath:    "/app/test-data/metrics.csv",
 				},
 				Database: DatabaseConfig{
-					Host:     "localhost",
+					Host:     "gpu-tel-postgresql",
 					Port:     5432,
-					User:     "gputel",
-					Password: "password",
+					User:     "postgres",
+					Password: "mysecretpassword",
 					DBName:   "gputel",
 					SSLMode:  "disable",
 				},
