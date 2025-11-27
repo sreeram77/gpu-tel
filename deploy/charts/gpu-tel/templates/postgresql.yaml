@@ -40,12 +40,12 @@ spec:
         - name: POSTGRES_DB
           value: gputel
         volumeMounts:
-        - name: postgres-data
+        - name: pgdata
           mountPath: /var/lib/postgresql/data
       volumes:
         - name: pgdata
           persistentVolumeClaim:
-            claimName: gpu-tel-postgresql-svc
+            claimName: gpu-tel-postgresql
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

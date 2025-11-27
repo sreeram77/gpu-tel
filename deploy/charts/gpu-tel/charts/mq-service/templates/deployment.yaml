@@ -20,7 +20,7 @@ spec:
     spec:
       initContainers:
         - name: wait-for-postgresql
-          image: bitnami/bitnami-common:1.0.0
+          image: busybox
           command: ["/bin/sh", "-c", "until nc -z gpu-tel-postgresql 5432; do echo waiting for postgres; sleep 2; done"]
       containers:
         - name: {{ .Chart.Name }}

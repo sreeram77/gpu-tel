@@ -22,7 +22,7 @@ message_queue:
 storage:
   type: postgres # Can be 'memory' or 'postgres'
   postgres:
-    host: localhost
+    host: gpu-tel-postgresql
     port: 5432
     user: postgres
     password: mysecretpassword
