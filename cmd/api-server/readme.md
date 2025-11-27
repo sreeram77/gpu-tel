@@ -96,7 +96,7 @@ server:
 
 ```bash
 # Build the service
-make build-api
+make api-server
 ```
 
 ### Running
