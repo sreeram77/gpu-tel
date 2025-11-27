@@ -63,7 +63,7 @@ The expected CSV format should include the following columns:
 
 ```bash
 # Build the service
-make build-streamer
+make telemetry-streamer
 ```
 
 ### Running

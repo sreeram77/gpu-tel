@@ -34,7 +34,7 @@ A high-performance, in-memory message queue service that provides publish-subscr
 
 ```bash
 # Build the service
-make build-mq
+make mq-service
 
 ```
 

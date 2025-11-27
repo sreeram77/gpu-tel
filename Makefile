@@ -401,17 +401,17 @@ deps:
 	go install github.com/golang/mock/mockgen@v1.6.0
 
 # Run message queue service
-run-mq: build-mq
+run-mq: $(MQ_SERVICE_BIN)
 	@echo "Starting message queue service..."
 	./$(BIN_DIR)/$(MQ_SERVICE_BIN)
 
 # Run telemetry streamer
-run-streamer: build-streamer
+run-streamer: $(STREAMER_BIN)
 	@echo "Starting telemetry streamer..."
 	./$(BIN_DIR)/$(STREAMER_BIN)
 
 # Run telemetry collector
-run-collector: build-collector
+run-collector: $(COLLECTOR_BIN)
 	@echo "Starting telemetry collector..."
 	DB_HOST=$(DB_HOST) \
 	DB_PORT=$(DB_PORT) \
@@ -422,7 +422,7 @@ run-collector: build-collector
 	./$(BIN_DIR)/$(COLLECTOR_BIN)
 
 # Run API gateway
-run-api: build-api
+run-api: $(API_SERVER_BIN)
 	@echo "Starting API gateway..."
 	./$(BIN_DIR)/$(API_SERVER_BIN)
 

@@ -56,7 +56,7 @@ collector:
 
 ```bash
 # Build the service
-make build-telemetry
+make telemetry-collector
 ```
 
 ### Running
