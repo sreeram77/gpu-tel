@@ -174,6 +174,32 @@ func TestPublisherService_Publish(t *testing.T) {
 			errCode:     codes.DeadlineExceeded,
 		},
 		{
+			name: "empty message ID generates UUID",
+			setupMocks: func() *mockPublishServer {
+				msg := createTestMessage()
+				msg.Id = "" // Empty ID should trigger UUID generation
+
+				mockStore.EXPECT().
+					Store(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, m *mq.Message) error {
+						assert.NotEmpty(t, m.Id, "Message ID should be generated")
+						assert.Equal(t, msg.Topic, m.Topic)
+						assert.Equal(t, msg.Payload, m.Payload)
+						return nil
+					}).
+					Times(1)
+
+				return &mockPublishServer{
+					messages: []*mq.PublishRequest{{
+						Message:    msg,
+						WaitForAck: false,
+					}},
+					ctx: context.Background(),
+				}
+			},
+			expectError: false,
+		},
+		{
 			name: "error on message store",
 			setupMocks: func() *mockPublishServer {
 				msg := createTestMessage()

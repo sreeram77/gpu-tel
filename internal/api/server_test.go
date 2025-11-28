@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -111,37 +112,66 @@ func TestListGPUs(t *testing.T) {
 }
 
 func TestGetGPUTelemetry(t *testing.T) {
-	// Setup
-	logger := zerolog.Nop()
-	mockStorage := new(MockTelemetryStorage)
-	server := NewServer(logger, mockStorage)
+	t.Run("with valid GPU ID", func(t *testing.T) {
+		// Setup
+		logger := zerolog.Nop()
+		mockStorage := new(MockTelemetryStorage)
+		server := NewServer(logger, mockStorage)
 
-	// Mock data
-	expectedTelemetry := []telemetry.GPUTelemetry{
-		{
-			Timestamp:  time.Now(),
-			MetricName: "gpu_utilization",
-			GPUIndex:   "0",
-			Value:      42.5,
-		},
-	}
+		// Mock data
+		expectedTelemetry := []telemetry.GPUTelemetry{
+			{
+				Timestamp:  time.Now(),
+				MetricName: "gpu_utilization",
+				GPUIndex:   "0",
+				Value:      42.5,
+			},
+		}
 
-	// Mock the expected call
-	mockStorage.On("GetGPUTelemetry", mock.Anything, "0", mock.Anything, mock.Anything).Return(expectedTelemetry, nil)
+		// Mock the expected call
+		mockStorage.On("GetGPUTelemetry", mock.Anything, "0", mock.Anything, mock.Anything).Return(expectedTelemetry, nil)
 
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
 
-	req, _ := http.NewRequest("GET", "/api/v1/gpus/0/telemetry?start=2023-01-01T00:00:00Z&end=2023-01-02T00:00:00Z", nil)
-	ctx.Request = req
-	ctx.Params = []gin.Param{{Key: "id", Value: "0"}}
+		req, _ := http.NewRequest("GET", "/api/v1/gpus/0/telemetry?start=2023-01-01T00:00:00Z&end=2023-01-02T00:00:00Z", nil)
+		ctx.Request = req
+		ctx.Params = []gin.Param{{Key: "id", Value: "0"}}
 
-	// Execute
-	server.getGPUTelemetry(ctx)
+		// Execute
+		server.getGPUTelemetry(ctx)
 
-	// Assert
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	mockStorage.AssertExpectations(t)
+		// Assert
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		mockStorage.AssertExpectations(t)
+	})
+
+	t.Run("with empty GPU ID", func(t *testing.T) {
+		// Setup
+		logger := zerolog.Nop()
+		server := NewServer(logger, nil) // No need for storage mock as it shouldn't be called
+
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+
+		req, _ := http.NewRequest("GET", "/api/v1/gpus//telemetry", nil)
+		ctx.Request = req
+		ctx.Params = []gin.Param{{Key: "id", Value: ""}}
+
+		// Execute
+		server.getGPUTelemetry(ctx)
+
+		// Assert
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		var resp struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+		err := json.Unmarshal(recorder.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+		assert.Equal(t, "GPU ID is required", resp.Message)
+	})
 }
 
 func TestRequestLogger(t *testing.T) {
