@@ -354,7 +354,7 @@ kind-restart: kind-clean kind-all
 
 wait:
 	@echo "Waiting for pods to be ready..."
-	@kubectl wait --for=condition=ready pod -all -n $(HELM_NAMESPACE) --timeout=10s
+	@kubectl wait --for=condition=ready pod --all -n $(HELM_NAMESPACE) --timeout=10s
 
 # Install dependencies
 deps:

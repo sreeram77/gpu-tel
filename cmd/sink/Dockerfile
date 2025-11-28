@@ -28,7 +28,7 @@ RUN apk add --no-cache ca-certificates
 RUN mkdir -p /app/configs
 
 # Copy binary and configs from builder
-COPY --from=builder /app/bin/sink .
+COPY --from=builder /app/bin/sink /app/bin/
 COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/swagger/ /app/swagger/
 COPY --from=builder /app/api/openapi.yaml /app/api/
