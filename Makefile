@@ -70,8 +70,6 @@ help:
 	@echo "\nBuild targets:"
 	@echo "  all              Build all binaries (default)"
 	@echo "  build           Build all binaries"
-	@echo "  build-api       Build API server"
-	@echo "  run-api         Run API server (port can be set with API_PORT, default: 8080)"
 	@echo "  proto           Generate protobuf code"
 	@echo "\nTest targets:"
 	@echo "  test            Run all tests with coverage"
@@ -102,15 +100,12 @@ help:
 	
 	@echo "\nDevelopment:"
 	@echo "  test             Run tests"
-	@echo "  test-api         Run API tests"
 	@echo "  clean            Remove build artifacts"
 	@echo "  deps             Install dependencies"
-	@echo "  deps-api         Install API server dependencies"
 	@echo "  lint             Run linters"
 	@echo "  format           Format source code"
 	@echo "  run-mq           Run message queue service"
 	@echo "  run-streamer     Run telemetry streamer"
-	@echo "  run-collector    Run telemetry collector"
 	@echo "  dev-setup        Setup development environment (Kind cluster + local registry)"
 	@echo "  dev-deploy       Build, load images, and deploy to local cluster"
 
@@ -160,23 +155,6 @@ $(STREAMER_BIN):
 $(SINK_BIN):
 	@echo "Building $@..."
 	@$(GOBUILD_CMD)
-
-## API Server
-deps-api:
-	@echo "Installing API server dependencies..."
-	@$(GOGET) -u github.com/gin-gonic/gin
-	@$(GOGET) -u github.com/rs/zerolog
-
-build-api: $(BIN_DIR) $(API_SERVER_BIN)
-
-run-api: build-api
-	@echo "Starting API server on port $(API_PORT)..."
-	@API_PORT=$(API_PORT) $(BIN_DIR)/$(API_SERVER_BIN)
-
-test-api:
-	@echo "Running API tests..."
-	@cd internal/api && $(GOTEST) -v -coverprofile=coverage.out ./...
-	@$(GOTOOL) cover -html=internal/api/coverage.out -o internal/api/coverage.html
 
 ## integration-test: Run integration tests
 integration-test:
@@ -300,8 +278,8 @@ clean:
 ## docker-clean: Remove all Docker images
 docker-clean:
 	@echo "Removing Docker images..."
-	-$(DOCKER_CMD) rmi $(API_IMAGE_NAME):$(VERSION) \
-		$(COLLECTOR_IMAGE_NAME):$(VERSION) \
+	-$(DOCKER_CMD) rmi \
+		$(SINK_IMAGE_NAME):$(VERSION) \
 		$(MQ_IMAGE_NAME):$(VERSION) \
 		$(STREAMER_IMAGE_NAME):$(VERSION) \
 		gpu-tel-base:$(VERSION) || true
@@ -369,10 +347,14 @@ kind-port-forward:
 	@kubectl port-forward -n $(HELM_NAMESPACE) svc/$(shell kubectl get svc -n $(HELM_NAMESPACE) -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
 
 ## kind-all: Setup and deploy everything to Kind
-kind-all: kind-create kind-load-images helm-install
+kind-all: kind-create kind-load-images helm-install wait kind-port-forward
 
 ## kind-restart: Clean and redeploy
 kind-restart: kind-clean kind-all
+
+wait:
+	@echo "Waiting for pods to be ready..."
+	@kubectl wait --for=condition=ready pod -all -n $(HELM_NAMESPACE) --timeout=10s
 
 # Install dependencies
 deps:
@@ -395,21 +377,10 @@ run-streamer: $(STREAMER_BIN)
 	@echo "Starting telemetry streamer..."
 	./$(BIN_DIR)/$(STREAMER_BIN)
 
-# Run telemetry collector
-run-collector: $(COLLECTOR_BIN)
-	@echo "Starting telemetry collector..."
-	DB_HOST=$(DB_HOST) \
-	DB_PORT=$(DB_PORT) \
-	DB_NAME=$(DB_NAME) \
-	DB_USER=$(DB_USER) \
-	DB_PASSWORD=$(DB_PASSWORD) \
-	DB_SSLMODE=$(DB_SSLMODE) \
-	./$(BIN_DIR)/$(COLLECTOR_BIN)
-
-# Run API gateway
-run-api: $(API_SERVER_BIN)
-	@echo "Starting API gateway..."
-	./$(BIN_DIR)/$(API_SERVER_BIN)
+# Run sink
+run-sink: $(SINK_BIN)
+	@echo "Starting sink..."
+	./$(BIN_DIR)/$(SINK_BIN)
 
 # Generate mocks for testing
 mock:
