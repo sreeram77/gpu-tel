@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 
@@ -13,6 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// stripAnsiCodes removes ANSI color codes from a string
+func stripAnsiCodes(str string) string {
+	re := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	return re.ReplaceAllString(str, "")
+}
 
 // MockTelemetryStorage is a mock implementation of TelemetryStorage for testing
 type MockTelemetryStorage struct {
@@ -135,6 +142,77 @@ func TestGetGPUTelemetry(t *testing.T) {
 	// Assert
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	mockStorage.AssertExpectations(t)
+}
+
+func TestRequestLogger(t *testing.T) {
+	// Create a test logger that captures output
+	logOutput := ""
+	logger := zerolog.New(zerolog.ConsoleWriter{
+		Out: &testWriter{output: &logOutput},
+	}).Level(zerolog.DebugLevel)
+
+	// Create a test router with the requestLogger middleware
+	router := gin.New()
+	router.Use(requestLogger(logger))
+
+	// Test case 1: Successful request
+	t.Run("successful request", func(t *testing.T) {
+		logOutput = "" // Reset log output
+		router.GET("/test", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		})
+
+		req, _ := http.NewRequest("GET", "/test?foo=bar", nil)
+		req.Header.Set("User-Agent", "test-agent")
+		req.RemoteAddr = "127.0.0.1:12345"
+
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+
+		// Strip ANSI color codes from log output
+		cleanLogs := stripAnsiCodes(logOutput)
+
+		assert.Equal(t, http.StatusOK, resp.Code)
+		assert.Contains(t, cleanLogs, "Request processed")
+		assert.Contains(t, cleanLogs, "method=GET")
+		assert.Contains(t, cleanLogs, "path=/test")
+		assert.Contains(t, cleanLogs, "status=200")
+		assert.Contains(t, cleanLogs, "query=foo=bar")
+		assert.Contains(t, cleanLogs, "user-agent=test-agent")
+	})
+
+	// Test case 2: Error response
+	t.Run("error response", func(t *testing.T) {
+		logOutput = "" // Reset log output
+		errorMsg := "test error"
+		router.GET("/error", func(c *gin.Context) {
+			c.Error(gin.Error{Err: assert.AnError, Type: gin.ErrorTypePrivate})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": errorMsg})
+		})
+
+		req, _ := http.NewRequest("GET", "/error", nil)
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+
+		// Strip ANSI color codes from log output
+		cleanLogs := stripAnsiCodes(logOutput)
+
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		assert.Contains(t, cleanLogs, "Request processed")
+		assert.Contains(t, cleanLogs, "status=500")
+		assert.Contains(t, cleanLogs, "ERR")
+		assert.Contains(t, cleanLogs, "assert.AnError")
+	})
+}
+
+// testWriter is a helper to capture log output
+type testWriter struct {
+	output *string
+}
+
+func (w *testWriter) Write(p []byte) (n int, err error) {
+	*w.output += string(p)
+	return len(p), nil
 }
 
 func TestParseTimeRange(t *testing.T) {

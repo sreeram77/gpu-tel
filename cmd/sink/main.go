@@ -27,6 +27,13 @@ func main() {
 		logger.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
+	// Log the MQ address being used
+	logger.Info().
+		Str("mq_addr", cfg.MessageQueue.Address).
+		Str("topic", cfg.MessageQueue.Topic).
+		Str("consumer_group", cfg.MessageQueue.ConsumerGroup).
+		Msg("Connecting to message queue")
+
 	// Initialize in-memory storage
 	memStorage := telemetry.NewMemoryStorage()
 	defer memStorage.Close()
@@ -34,8 +41,8 @@ func main() {
 	// Initialize collector
 	collector, err := telemetry.NewCollector(logger, memStorage, &telemetry.CollectorConfig{
 		MQAddr:            cfg.MessageQueue.Address,
-		Topic:             "gpu_metrics",
-		ConsumerGroup:     "gpu-tel-service",
+		Topic:             cfg.MessageQueue.Topic,
+		ConsumerGroup:     cfg.MessageQueue.ConsumerGroup,
 		BatchSize:         cfg.Collector.BatchSize,
 		MaxInFlight:       cfg.Collector.MaxInFlight,
 		AckTimeoutSeconds: cfg.Collector.AckTimeoutSeconds,

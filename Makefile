@@ -1,4 +1,4 @@
-.PHONY: proto generate test build clean deps run help docker-build docker-push docker-all docker-clean docker-push-all
+.PHONY: proto generate test integration-test build clean deps run help docker-build docker-push docker-all docker-clean docker-push-all
 
 # Go parameters
 GOCMD=go
@@ -75,6 +75,7 @@ help:
 	@echo "  proto           Generate protobuf code"
 	@echo "\nTest targets:"
 	@echo "  test            Run all tests with coverage"
+	@echo "  integration-test Run integration tests"
 	@echo "  test-cover      Generate HTML coverage report"
 	@echo "  test-cover-func Show function coverage"
 	@echo "  test-cover-pkg  Show package coverage"
@@ -156,13 +157,6 @@ $(STREAMER_BIN):
 	@echo "Building $@..."
 	@$(GOBUILD_CMD)
 
-$(COLLECTOR_BIN):
-	@echo "Building $@..."
-	@$(GOBUILD_CMD)
-
-$(API_SERVER_BIN):
-	@echo "Building $@..."
-	@$(GOBUILD_CMD)
 
 ## API Server
 deps-api:
@@ -180,6 +174,11 @@ test-api:
 	@echo "Running API tests..."
 	@cd internal/api && $(GOTEST) -v -coverprofile=coverage.out ./...
 	@$(GOTOOL) cover -html=internal/api/coverage.out -o internal/api/coverage.html
+
+## integration-test: Run integration tests
+integration-test:
+	@echo "Running integration tests..."
+	$(GOTEST) -v -tags=integration ./integration/... -count=1
 
 ## Code quality
 lint:

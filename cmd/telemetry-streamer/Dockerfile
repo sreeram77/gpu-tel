@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/telemetry-collector ./cmd/telemetry-collector
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/telemetry-streamer ./cmd/telemetry-streamer
 
 # Final stage
 FROM alpine:3.18
@@ -22,16 +22,17 @@ FROM alpine:3.18
 WORKDIR /app/bin
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates \
-    && apk add --no-cache --virtual .build-deps \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache ca-certificates
 
 # Copy binary from builder
-COPY --from=builder /app/bin/telemetry-collector /app/bin/
+COPY --from=builder /app/bin/telemetry-streamer /app/bin/
 COPY configs/ /app/configs/
 
+# Copy test data
+COPY test-data/ /app/test-data/
+
 # Command to run the executable
-ENTRYPOINT ["./telemetry-collector"]
+ENTRYPOINT ["./telemetry-streamer"]
 
 # Default command arguments
 CMD ["--config", "/app/configs/config.yaml"]

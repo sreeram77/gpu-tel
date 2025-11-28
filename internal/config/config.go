@@ -64,7 +64,9 @@ type GRPCServerConfig struct {
 
 // MessageQueueConfig holds message queue configuration
 type MessageQueueConfig struct {
-	Address string `mapstructure:"address"`
+	Address       string `mapstructure:"address"`
+	Topic         string `mapstructure:"topic"`
+	ConsumerGroup string `mapstructure:"consumer_group"`
 }
 
 // StorageConfig holds storage configuration
@@ -165,6 +167,8 @@ func setDefaults(v *viper.Viper) {
 
 	// Message queue defaults
 	v.SetDefault("message_queue.address", "localhost:50051")
+	v.SetDefault("message_queue.topic", "")
+	v.SetDefault("message_queue.consumer_group", "")
 
 	// Storage defaults
 	v.SetDefault("storage.type", "postgres")
