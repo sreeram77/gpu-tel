@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -134,7 +135,17 @@ func (c *Collector) Start(ctx context.Context) error {
 
 // runSubscriptionLoop continuously processes messages from the subscription
 func (c *Collector) runSubscriptionLoop(ctx context.Context) error {
-	consumerID := fmt.Sprintf("%s-collector", c.config.ConsumerGroup)
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			podName = fmt.Sprintf("sink-%s", time.Now().UnixNano())
+		} else {
+			podName = hostname
+		}
+	}
+
+	consumerID := fmt.Sprintf("%s-%s", c.config.ConsumerGroup, podName)
 
 	for {
 		select {
@@ -256,7 +267,6 @@ func (c *Collector) processSubscription(ctx context.Context, consumerID string) 
 			}
 		}
 	}
-	return nil
 }
 
 // acknowledgeMessages sends acknowledgment for processed messages

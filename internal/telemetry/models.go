@@ -15,7 +15,7 @@ type GPU struct {
 // GPUTelemetry represents a single telemetry data point for a GPU
 type GPUTelemetry struct {
 	// Fields from CSV
-	Timestamp  time.Time `json:"timestamp,omitzero"`
+	Timestamp  time.Time `json:"timestamp"`
 	MetricName string    `json:"metric_name"`
 	GPUIndex   string    `json:"gpu_id"`
 	Device     string    `json:"device"`

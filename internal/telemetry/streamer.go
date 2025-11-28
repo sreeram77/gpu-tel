@@ -258,9 +258,3 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 		Int("total_metrics", len(s.metrics)).
 		Msg("Processed telemetry batch")
 }
-
-// Helper function to convert string to int, returns 0 on error
-func mustAtoi(s string) int {
-	i, _ := strconv.Atoi(s)
-	return i
-}

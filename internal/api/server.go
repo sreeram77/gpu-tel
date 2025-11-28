@@ -34,6 +34,8 @@ func NewServer(logger zerolog.Logger, storage telemetry.TelemetryStorage) *Serve
 	}
 
 	srv.router = gin.New()
+	srv.router.RedirectTrailingSlash = true
+
 	srv.router.Use(
 		gin.Recovery(),
 		requestLogger(logger),
