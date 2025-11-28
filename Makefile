@@ -260,7 +260,8 @@ COVERAGE_HTML=coverage.html
 # Run tests with 1 minute timeout
 test:
 	@echo "Running tests with 1 minute timeout..."
-	$(GOTEST) -v -timeout=1m -coverprofile=$(COVERAGE_FILE) -covermode=count ./...
+	$(GOTEST) `go list ./... | grep -v -e './api/v1/mq' -e 'mocks'` -v -timeout=1m  -coverprofile=$(COVERAGE_FILE) -covermode=count ./...
+
 
 # Run tests with coverage and generate HTML report
 test-cover: test

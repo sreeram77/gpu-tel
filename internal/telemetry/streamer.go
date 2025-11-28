@@ -86,6 +86,8 @@ func (s *Streamer) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.done:
 			return nil
 		case <-ticker.C:
 			// Collect and process telemetry data

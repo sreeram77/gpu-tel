@@ -24,9 +24,9 @@ func (m *MockTelemetryStorage) Store(ctx context.Context, batch telemetry.Teleme
 	return args.Error(0)
 }
 
-func (m *MockTelemetryStorage) ListGPUs(ctx context.Context) ([]telemetry.GPUTelemetry, error) {
+func (m *MockTelemetryStorage) ListGPUs(ctx context.Context) ([]telemetry.GPU, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]telemetry.GPUTelemetry), args.Error(1)
+	return args.Get(0).([]telemetry.GPU), args.Error(1)
 }
 
 func (m *MockTelemetryStorage) GetGPUTelemetry(ctx context.Context, gpuID string, start, end time.Time) ([]telemetry.GPUTelemetry, error) {
@@ -75,16 +75,16 @@ func TestListGPUs(t *testing.T) {
 	server := NewServer(logger, mockStorage)
 
 	// Mock the expected call
-	expectedGPUs := []telemetry.GPUTelemetry{
+	expectedGPUs := []telemetry.GPU{
 		{
-			GPUIndex:  "0",
-			Hostname:  "host1",
-			ModelName: "NVIDIA A100",
+			GPUIndex: "0",
+			Hostname: "host1",
+			Device:   "NVIDIA A100",
 		},
 		{
-			GPUIndex:  "1",
-			Hostname:  "host2",
-			ModelName: "NVIDIA V100",
+			GPUIndex: "1",
+			Hostname: "host2",
+			Device:   "NVIDIA V100",
 		},
 	}
 	mockStorage.On("ListGPUs", mock.Anything).Return(expectedGPUs, nil)
