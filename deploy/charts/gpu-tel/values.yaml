@@ -130,48 +130,6 @@ subcharts:
         cpu: 500m
         memory: 256Mi
 
-  postgresql:
-    enabled: false
-    image:
-      registry: docker.io
-      repository: library/postgres
-      tag: '15-alpine'
-      pullPolicy: IfNotPresent
-
-    # PostgreSQL superuser credentials
-    auth:
-      postgresPassword: "postgres"
-      username: "postgres"
-      password: "postgres"
-      database: "gputel"
-      
-    # Persistent volume configuration
-    primary:
-      persistence:
-        enabled: true
-        size: 10Gi
-        accessModes:
-          - ReadWriteOnce
-    
-    # Resource limits
-    resources:
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        cpu: 500m
-        memory: 1Gi
-    
-    # Service configuration
-    service:
-      type: ClusterIP
-      port: 5432
-      
-    # Enable metrics
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: true
 
 # Ingress configuration
 ingress:

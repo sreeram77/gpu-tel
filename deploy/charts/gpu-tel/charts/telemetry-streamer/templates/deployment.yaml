@@ -18,10 +18,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      initContainers:
-        - name: wait-for-postgresql
-          image: busybox
-          command: ["/bin/sh", "-c", "until nc -z gpu-tel-postgresql 5432; do echo waiting for postgres; sleep 2; done"]
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

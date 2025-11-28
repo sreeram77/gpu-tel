@@ -13,15 +13,6 @@ service:
 mqService:
   port: 5672
 
-# Database configuration
-database:
-  host: gpu-tel-postgresql
-  port: 5432
-  name: gputel
-  user: postgres
-  password: postgres
-  sslMode: disable  # For development; use 'require' or 'verify-full' in production
-
 # Additional environment variables
 env: []
   # - name: ENV_VAR_NAME
