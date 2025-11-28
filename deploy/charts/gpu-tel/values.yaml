@@ -35,7 +35,7 @@ global:
 # Subchart configurations
 subcharts:
   api-server:
-    enabled: true
+    enabled: false
     replicaCount: 1
     service:
       type: ClusterIP
@@ -74,7 +74,7 @@ subcharts:
         memory: 512Mi
 
   telemetry-collector:
-    enabled: true
+    enabled: false
     replicaCount: 1
     service:
       type: ClusterIP
@@ -111,48 +111,25 @@ subcharts:
         cpu: 500m
         memory: 256Mi
 
-  postgresql:
+  sink:
     enabled: true
-    image:
-      registry: docker.io
-      repository: library/postgres
-      tag: '15-alpine'
-      pullPolicy: IfNotPresent
-
-    # PostgreSQL superuser credentials
-    auth:
-      postgresPassword: "postgres"
-      username: "postgres"
-      password: "postgres"
-      database: "gputel"
-      
-    # Persistent volume configuration
-    primary:
-      persistence:
-        enabled: true
-        size: 10Gi
-        accessModes:
-          - ReadWriteOnce
-    
-    # Resource limits
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 8080
+    serviceAccount:
+      create: true
+    monitoring:
+      enabled: true
+      path: /metrics
     resources:
       requests:
         cpu: 100m
-        memory: 256Mi
+        memory: 128Mi
       limits:
         cpu: 500m
-        memory: 1Gi
-    
-    # Service configuration
-    service:
-      type: ClusterIP
-      port: 5432
-      
-    # Enable metrics
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: true
+        memory: 256Mi
+
 
 # Ingress configuration
 ingress:

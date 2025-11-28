@@ -25,9 +25,9 @@ func (m *MockStorage) Store(ctx context.Context, batch TelemetryBatch) error {
 	return args.Error(0)
 }
 
-func (m *MockStorage) ListGPUs(ctx context.Context) ([]GPUTelemetry, error) {
+func (m *MockStorage) ListGPUs(ctx context.Context) ([]GPU, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]GPUTelemetry), args.Error(1)
+	return args.Get(0).([]GPU), args.Error(1)
 }
 
 func (m *MockStorage) GetGPUTelemetry(ctx context.Context, gpuID string, start, end time.Time) ([]GPUTelemetry, error) {
@@ -91,7 +91,7 @@ func startMockGRPCServer(t *testing.T) (string, func()) {
 
 	// Create a gRPC server
 	grpcServer := grpc.NewServer()
-	
+
 	// Register the mock service with the gRPC server
 	mqpb.RegisterSubscriberServiceServer(grpcServer, mockSvc)
 

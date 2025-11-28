@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mq-service.fullname" . }}
+  name: {{ include "sink.fullname" . }}
   labels:
-    {{- include "mq-service.labels" . | nindent 4 }}
+    {{- include "sink.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "mq-service.selectorLabels" . | nindent 6 }}
+      {{- include "sink.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "mq-service.selectorLabels" . | nindent 8 }}
+        {{- include "sink.selectorLabels" . | nindent 8 }}
       annotations:
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -23,11 +23,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: mq
+            - name: http
               containerPort: {{ .Values.service.port }}
-              protocol: TCP
-            - name: grpc
-              containerPort: 50051
               protocol: TCP
           {{- with .Values.resources }}
           resources:
@@ -36,6 +33,10 @@ spec:
           env:
             - name: PORT
               value: {{ .Values.service.port | quote }}
+            - name: MQ_SERVICE
+              value: {{ printf "%s-mq-service" (include "gpu-tel.fullname" .) }}
+            - name: MQ_PORT
+              value: {{ .Values.mqService.port | quote }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -10,12 +10,10 @@ import (
 
 // GPU represents a GPU in the system
 type GPU struct {
-	UUID      string    `json:"uuid"`
-	GPUIndex  string    `json:"gpu_id"`
-	Device    string    `json:"device"`
-	ModelName string    `json:"model_name"`
-	Hostname  string    `json:"hostname"`
-	TimeStamp time.Time `json:"timestamp"`
+	UUID     string `json:"uuid"`
+	GPUIndex string `json:"gpu_id"`
+	Device   string `json:"device"`
+	Hostname string `json:"hostname"`
 }
 
 // Telemetry represents a telemetry data point for a GPU
@@ -52,13 +50,10 @@ func (s *Server) listGPUs(c *gin.Context) {
 	gpus := make([]GPU, 0, len(gpuTelemetry))
 	for _, gpu := range gpuTelemetry {
 		gpus = append(gpus, GPU{
-			UUID:      gpu.UUID,
-			GPUIndex:  gpu.GPUIndex,
-			ModelName: gpu.ModelName,
-			Hostname:  gpu.Hostname,
-			// Set default values for fields not directly mapped
-			Device:    gpu.Device,
-			TimeStamp: gpu.Timestamp,
+			UUID:     gpu.UUID,
+			GPUIndex: gpu.GPUIndex,
+			Hostname: gpu.Hostname,
+			Device:   gpu.Device,
 		})
 	}
 
@@ -92,7 +87,7 @@ func (s *Server) getGPUTelemetry(c *gin.Context) {
 	result := make([]Telemetry, 0, len(telemetryData))
 	for _, t := range telemetryData {
 		result = append(result, Telemetry{
-			Timestamp:  t.Timestamp,
+			Timestamp:  t.Timestamp.UTC(),
 			MetricName: t.MetricName,
 			GPUIndex:   t.GPUIndex,
 			Device:     t.Device,
@@ -112,8 +107,8 @@ func (s *Server) getGPUTelemetry(c *gin.Context) {
 
 // parseTimeRange parses start and end time from query parameters
 func parseTimeRange(c *gin.Context) (time.Time, time.Time, error) {
-	now := time.Now()
-	defaultStart := now.Add(-24 * time.Hour) // Default to last 24 hours
+	now := time.Now().UTC()
+	defaultStart := now.Add(-1 * time.Hour) // Default to last 1 hour
 
 	// Parse start time
 	startTimeStr := c.DefaultQuery("start_time", "")

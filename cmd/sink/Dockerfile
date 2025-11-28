@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/api-server ./cmd/api-server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/sink ./cmd/sink
 
 # Final stage
 FROM alpine:3.18
@@ -25,15 +25,16 @@ WORKDIR /app/bin
 RUN apk add --no-cache ca-certificates
 
 # Create necessary directories
-RUN mkdir -p /app/api /app/configs /app/swagger
+RUN mkdir -p /app/configs
 
 # Copy binary and configs from builder
-COPY --from=builder /app/bin/api-server /app/bin/
-COPY --from=builder /app/api/openapi.yaml /app/api/
-COPY --from=builder /app/configs/ /app/configs/
-
-# Copy Swagger UI files
+COPY --from=builder /app/bin/sink .
+COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/swagger/ /app/swagger/
+COPY --from=builder /app/api/openapi.yaml /app/api/
+
+# Set environment variables
+ENV CONFIG_FILE=/app/configs/config.yaml
 
 # Make sure the swagger.json is accessible
 RUN chmod -R 755 /app/swagger && \
@@ -42,8 +43,8 @@ RUN chmod -R 755 /app/swagger && \
 # Expose the port the app runs on
 EXPOSE 8080
 
-# Command to run the executable
-ENTRYPOINT ["./api-server"]
+# Command to run the application
+ENTRYPOINT ["./sink"]
 
 # Default command arguments
 CMD ["--config", "/app/configs/config.yaml"]

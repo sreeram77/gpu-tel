@@ -1,4 +1,4 @@
-.PHONY: proto generate test build clean deps run help docker-build docker-push docker-all docker-clean docker-push-all
+.PHONY: proto generate test integration-test build clean deps run help docker-build docker-push docker-all docker-clean docker-push-all
 
 # Go parameters
 GOCMD=go
@@ -12,8 +12,7 @@ GOTOOL=$(GOCMD) tool
 # Binary names
 MQ_SERVICE_BIN=mq-service
 STREAMER_BIN=telemetry-streamer
-COLLECTOR_BIN=telemetry-collector
-API_SERVER_BIN=api-server
+SINK_BIN=sink
 
 # Directories
 BIN_DIR=bin
@@ -27,13 +26,6 @@ GOBUILD_CMD=$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$@ ./cmd/$@
 # Default port for API server
 API_PORT?=8080
 
-# Database configuration
-DB_HOST?=localhost
-DB_PORT?=5432
-DB_NAME?=gputel
-DB_USER?=postgres
-DB_PASSWORD?=postgres
-DB_SSLMODE?=disable
 
 # Docker parameters
 DOCKER_CMD=docker
@@ -54,8 +46,7 @@ HELM_NAMESPACE?=gpu-tel
 HELM_RELEASE_NAME?=gpu-tel
 HELM_CHART=./deploy/charts/gpu-tel
 STREAMER_IMAGE_NAME=gpu-tel-streamer
-COLLECTOR_IMAGE_NAME=gpu-tel-collector
-API_IMAGE_NAME=gpu-tel-api
+SINK_IMAGE_NAME=gpu-tel-sink
 
 # Image tags for local development
 IMAGE_TAG?=latest
@@ -79,11 +70,10 @@ help:
 	@echo "\nBuild targets:"
 	@echo "  all              Build all binaries (default)"
 	@echo "  build           Build all binaries"
-	@echo "  build-api       Build API server"
-	@echo "  run-api         Run API server (port can be set with API_PORT, default: 8080)"
 	@echo "  proto           Generate protobuf code"
 	@echo "\nTest targets:"
 	@echo "  test            Run all tests with coverage"
+	@echo "  integration-test Run integration tests"
 	@echo "  test-cover      Generate HTML coverage report"
 	@echo "  test-cover-func Show function coverage"
 	@echo "  test-cover-pkg  Show package coverage"
@@ -110,15 +100,12 @@ help:
 	
 	@echo "\nDevelopment:"
 	@echo "  test             Run tests"
-	@echo "  test-api         Run API tests"
 	@echo "  clean            Remove build artifacts"
 	@echo "  deps             Install dependencies"
-	@echo "  deps-api         Install API server dependencies"
 	@echo "  lint             Run linters"
 	@echo "  format           Format source code"
 	@echo "  run-mq           Run message queue service"
 	@echo "  run-streamer     Run telemetry streamer"
-	@echo "  run-collector    Run telemetry collector"
 	@echo "  dev-setup        Setup development environment (Kind cluster + local registry)"
 	@echo "  dev-deploy       Build, load images, and deploy to local cluster"
 
@@ -152,7 +139,7 @@ proto: check-protoc check-protoc-go check-protoc-go-grpc
 	       $(PROTO_DIR)/mq.proto
 
 # Build targets
-build: $(BIN_DIR) $(MQ_SERVICE_BIN) $(STREAMER_BIN) $(COLLECTOR_BIN) $(API_SERVER_BIN)
+build: $(BIN_DIR) $(MQ_SERVICE_BIN) $(STREAMER_BIN) $(SINK_BIN)
 
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
@@ -165,30 +152,14 @@ $(STREAMER_BIN):
 	@echo "Building $@..."
 	@$(GOBUILD_CMD)
 
-$(COLLECTOR_BIN):
+$(SINK_BIN):
 	@echo "Building $@..."
 	@$(GOBUILD_CMD)
 
-$(API_SERVER_BIN):
-	@echo "Building $@..."
-	@$(GOBUILD_CMD)
-
-## API Server
-deps-api:
-	@echo "Installing API server dependencies..."
-	@$(GOGET) -u github.com/gin-gonic/gin
-	@$(GOGET) -u github.com/rs/zerolog
-
-build-api: $(BIN_DIR) $(API_SERVER_BIN)
-
-run-api: build-api
-	@echo "Starting API server on port $(API_PORT)..."
-	@API_PORT=$(API_PORT) $(BIN_DIR)/$(API_SERVER_BIN)
-
-test-api:
-	@echo "Running API tests..."
-	@cd internal/api && $(GOTEST) -v -coverprofile=coverage.out ./...
-	@$(GOTOOL) cover -html=internal/api/coverage.out -o internal/api/coverage.html
+## integration-test: Run integration tests
+integration-test:
+	@echo "Running integration tests..."
+	$(GOTEST) -v -tags=integration ./integration/... -count=1
 
 ## Code quality
 lint:
@@ -204,34 +175,29 @@ format:
 	@$(GOCMD) vet ./...
 
 # Build individual Docker images
-docker-build-api:
-	$(DOCKER_CMD) build -t $(API_IMAGE_NAME):$(VERSION) -f cmd/api-server/Dockerfile .
-
 docker-build-mq:
 	$(DOCKER_CMD) build -t $(MQ_IMAGE_NAME):$(VERSION) -f cmd/mq-service/Dockerfile .
-
-docker-build-collector:
-	$(DOCKER_CMD) build -t $(COLLECTOR_IMAGE_NAME):$(VERSION) -f cmd/telemetry-collector/Dockerfile .
 
 docker-build-streamer:
 	$(DOCKER_CMD) build -t $(STREAMER_IMAGE_NAME):$(VERSION) -f cmd/telemetry-streamer/Dockerfile .
 
+docker-build-sink:
+	$(DOCKER_CMD) build -t $(SINK_IMAGE_NAME):$(VERSION) -f cmd/sink/Dockerfile .
+
 # Build all Docker images
-docker-build: docker-build-api docker-build-mq docker-build-collector docker-build-streamer
+docker-build: docker-build-mq docker-build-streamer docker-build-sink
 
 # Tag images for local registry
 docker-tag:
-	$(DOCKER_CMD) tag $(API_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(API_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) tag $(MQ_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
-	$(DOCKER_CMD) tag $(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) tag $(STREAMER_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) tag $(SINK_IMAGE_NAME):$(IMAGE_TAG) $(KIND_REGISTRY)/$(SINK_IMAGE_NAME):$(IMAGE_TAG)
 
 # Push images to local registry
 docker-push:
-	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(API_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(MQ_IMAGE_NAME):$(IMAGE_TAG)
-	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(COLLECTOR_IMAGE_NAME):$(IMAGE_TAG)
 	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(STREAMER_IMAGE_NAME):$(IMAGE_TAG)
+	$(DOCKER_CMD) push $(KIND_REGISTRY)/$(SINK_IMAGE_NAME):$(IMAGE_TAG)
 # Helm commands
 helm-deps:
 	helm dependency update $(HELM_CHART)
@@ -240,9 +206,8 @@ helm-install: helm-deps
 	helm upgrade --install $(HELM_RELEASE_NAME) $(HELM_CHART) \
 		--namespace $(HELM_NAMESPACE) \
 		--create-namespace \
-		--set api-server.image.repository=$(API_IMAGE_NAME) \
 		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
-		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set sink.image.repository=$(SINK_IMAGE_NAME) \
 		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
 		--set global.image.tag=$(VERSION) \
 		--set global.image.pullPolicy=Never
@@ -256,9 +221,8 @@ helm-status:
 helm-template:
 	helm template $(HELM_RELEASE_NAME) $(HELM_CHART) \
 		--namespace $(HELM_NAMESPACE) \
-		--set api-server.image.repository=$(API_IMAGE_NAME) \
 		--set mq-service.image.repository=$(MQ_IMAGE_NAME) \
-		--set telemetry-collector.image.repository=$(COLLECTOR_IMAGE_NAME) \
+		--set sink.image.repository=$(SINK_IMAGE_NAME) \
 		--set telemetry-streamer.image.repository=$(STREAMER_IMAGE_NAME) \
 		--set global.image.tag=$(VERSION) \
 		--set global.image.pullPolicy=Never
@@ -276,7 +240,8 @@ COVERAGE_HTML=coverage.html
 # Run tests with 1 minute timeout
 test:
 	@echo "Running tests with 1 minute timeout..."
-	$(GOTEST) -v -timeout=1m -coverprofile=$(COVERAGE_FILE) -covermode=count ./...
+	$(GOTEST) `go list ./... | grep -v -e './api/v1/mq' -e 'mocks'` -v -timeout=1m  -coverprofile=$(COVERAGE_FILE) -covermode=count ./...
+
 
 # Run tests with coverage and generate HTML report
 test-cover: test
@@ -313,8 +278,8 @@ clean:
 ## docker-clean: Remove all Docker images
 docker-clean:
 	@echo "Removing Docker images..."
-	-$(DOCKER_CMD) rmi $(API_IMAGE_NAME):$(VERSION) \
-		$(COLLECTOR_IMAGE_NAME):$(VERSION) \
+	-$(DOCKER_CMD) rmi \
+		$(SINK_IMAGE_NAME):$(VERSION) \
 		$(MQ_IMAGE_NAME):$(VERSION) \
 		$(STREAMER_IMAGE_NAME):$(VERSION) \
 		gpu-tel-base:$(VERSION) || true
@@ -349,8 +314,7 @@ kind-delete:
 ## kind-load-images: Load local Docker images into the Kind cluster
 kind-load-images: docker-build
 	@echo "Loading images into Kind cluster..."
-	kind load docker-image $(API_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
-	kind load docker-image $(COLLECTOR_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
+	kind load docker-image $(SINK_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 	kind load docker-image $(MQ_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 	kind load docker-image $(STREAMER_IMAGE_NAME):$(VERSION) --name $(KIND_CLUSTER_NAME)
 
@@ -358,7 +322,6 @@ kind-load-images: docker-build
 kind-clean:
 	@echo "Cleaning up Kind cluster resources..."
 	-helm uninstall $(HELM_RELEASE_NAME) -n $(HELM_NAMESPACE) 2>/dev/null || true
-	-kubectl delete pvc -l app.kubernetes.io/name=postgresql -n $(HELM_NAMESPACE) 2>/dev/null || true
 	-kubectl delete namespace $(HELM_NAMESPACE) 2>/dev/null || true
 
 ## kind-status: Show status of the deployed application
@@ -384,10 +347,14 @@ kind-port-forward:
 	@kubectl port-forward -n $(HELM_NAMESPACE) svc/$(shell kubectl get svc -n $(HELM_NAMESPACE) -o jsonpath='{.items[?(@.spec.ports[].port==8080)].metadata.name}') 8080:8080
 
 ## kind-all: Setup and deploy everything to Kind
-kind-all: kind-create kind-load-images helm-install
+kind-all: kind-create kind-load-images helm-install wait kind-port-forward
 
 ## kind-restart: Clean and redeploy
 kind-restart: kind-clean kind-all
+
+wait:
+	@echo "Waiting for pods to be ready..."
+	@kubectl wait --for=condition=ready pod -all -n $(HELM_NAMESPACE) --timeout=10s
 
 # Install dependencies
 deps:
@@ -410,21 +377,10 @@ run-streamer: $(STREAMER_BIN)
 	@echo "Starting telemetry streamer..."
 	./$(BIN_DIR)/$(STREAMER_BIN)
 
-# Run telemetry collector
-run-collector: $(COLLECTOR_BIN)
-	@echo "Starting telemetry collector..."
-	DB_HOST=$(DB_HOST) \
-	DB_PORT=$(DB_PORT) \
-	DB_NAME=$(DB_NAME) \
-	DB_USER=$(DB_USER) \
-	DB_PASSWORD=$(DB_PASSWORD) \
-	DB_SSLMODE=$(DB_SSLMODE) \
-	./$(BIN_DIR)/$(COLLECTOR_BIN)
-
-# Run API gateway
-run-api: $(API_SERVER_BIN)
-	@echo "Starting API gateway..."
-	./$(BIN_DIR)/$(API_SERVER_BIN)
+# Run sink
+run-sink: $(SINK_BIN)
+	@echo "Starting sink..."
+	./$(BIN_DIR)/$(SINK_BIN)
 
 # Generate mocks for testing
 mock:

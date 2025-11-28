@@ -1,0 +1,54 @@
+app:
+  name: "gpu-tel-test"
+  env: "test"
+  version: "0.1.0"
+
+server:
+  http:
+    port: 8080
+    read_timeout: 10s
+    write_timeout: 10s
+  grpc:
+    port: 50051
+    timeout: 10s
+
+message_queue:
+  address: "localhost:50051"
+  topic: "gpu_metrics"
+  consumer_group: "gpu-tel-service"
+
+storage:
+  type: "memory"
+  postgres:
+    host: "localhost"
+    port: 5432
+    user: "testuser"
+    password: "testpass"
+    dbname: "gputel_test"
+    sslmode: "disable"
+
+log:
+  level: "debug"
+  format: "console"
+  file: ""
+
+telemetry:
+  stream_interval: 5s
+  max_retries: 3
+  batch_size: 100
+  max_queue_size: 1000
+  metrics_path: "./test-data/metrics.csv"
+
+collector:
+  batch_size: 10
+  max_in_flight: 100
+  ack_timeout_seconds: 30
+  worker_count: 2
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "testuser"
+  password: "testpass"
+  dbname: "gputel_test"
+  sslmode: "disable"

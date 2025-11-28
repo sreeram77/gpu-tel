@@ -7,7 +7,7 @@ A high-performance, scalable telemetry pipeline for collecting, processing, and 
 - **Real-time GPU Metrics Collection**: Capture detailed GPU metrics including utilization, memory usage, and temperature
 - **Scalable Architecture**: Built with microservices for horizontal scaling
 - **Message Queue Integration**: Uses gRPC-based message queue for reliable message delivery
-- **Persistent Storage**: Stores metrics in PostgreSQL for historical analysis
+- **Efficient Processing**: Optimized for high-throughput telemetry data processing
 - **Containerized**: Easy deployment with Docker and Kubernetes
 - **Monitoring**: Built-in OpenTelemetry integration for observability
 
@@ -16,25 +16,22 @@ A high-performance, scalable telemetry pipeline for collecting, processing, and 
 This project consists of several microservices, each with its own documentation:
 
 1. [Message Queue Service (mq-service)](./cmd/mq-service/readme.md) - gRPC-based message queue for reliable communication between services
-2. [Telemetry Collector](./cmd/telemetry-collector/readme.md) - Collects and processes GPU telemetry data
+2. [Sink](./cmd/sink/readme.md) - Processes and stores GPU telemetry data 
 3. [Telemetry Streamer](./cmd/telemetry-streamer/readme.md) - Streams telemetry data from CSV to the message queue
-4. [API Server](./cmd/api-server/readme.md) - Provides RESTful API for querying GPU telemetry data
 
 ## Architecture
 
 The system consists of several microservices:
 
-1. **Telemetry Collector**: Collects and processes GPU metrics
+1. **Sink**: Processes and stores GPU metrics, and exposes HTTP APIsd 
 2. **Message Queue Service**: Handles message routing and delivery
-3. **API Server**: Provides REST/gRPC endpoints for querying metrics
-4. **Telemetry Streamer**: Streams real-time metrics to connected clients
+3. **Telemetry Streamer**: Streams telemetry data from CSV to the message queue
 
 ```
 ├── api/                  # API definitions (gRPC/OpenAPI)
 ├── cmd/                  # Main applications
-│   ├── api-server/       # API server implementation
 │   ├── mq-service/       # Message queue service
-│   ├── telemetry-collector/  # Metrics collection service
+│   ├── sink/             # Sink service for processing and storing metrics
 │   └── telemetry-streamer/   # Real-time streaming service
 ├── configs/              # Configuration files
 ├── internal/             # Private application code
@@ -49,7 +46,6 @@ The system consists of several microservices:
 
 - Go 1.25+
 - Docker and Docker Compose
-- PostgreSQL 13+
 - Make (for development)
 
 ## Getting Started
@@ -62,15 +58,13 @@ The system consists of several microservices:
    cd gpu-tel
    ```
 
-2. Start dependencies:
+2. Build and run services:
    ```bash
-   docker-compose up -d postgres
+   make kind-all
    ```
-
-3. Build and run services:
+3. Port forward API server:
    ```bash
-   make build
-   make run
+   make kind-port-forward
    ```
 
 ### Configuration
@@ -78,22 +72,8 @@ The system consists of several microservices:
 Edit `configs/config.yaml` to configure the services:
 
 ```yaml
-database:
-  host: localhost
-  port: 5432
-  user: postgres
-  password: postgres
-  dbname: gpu_telemetry
-  sslmode: disable
-
 message_queue:
   address: "localhost:50051"
-
-collector:
-  batch_size: 100
-  max_in_flight: 1000
-  ack_timeout_seconds: 30
-  worker_count: 3
 ```
 
 ## API Documentation
@@ -113,6 +93,11 @@ make build
 Run all tests:
 ```bash
 make test
+```
+
+Run integration-test:
+```bash
+make integration-test
 ```
 
 Generate and view test coverage report:
@@ -135,11 +120,14 @@ make test-cover-all
 **Note on Test Coverage**:
 The test coverage metrics include generated files (like protocol buffer code and mocks), which may result in lower coverage percentages than actual code coverage. The coverage for hand-written code is typically higher than the reported numbers.
 
-### Testing
+### Running the Sink Service
+
+To run the sink service locally:
 
 ```bash
-make test
+make run-sink
 ```
+
 
 ## Local Development
 
@@ -147,7 +135,6 @@ make test
 
 - Go 1.25+
 - Docker and Docker Compose
-- PostgreSQL 13+
 - Make
 - Kind (Kubernetes in Docker)
 - kubectl
@@ -165,40 +152,32 @@ The easiest way to set up a complete development environment is using the `kind-
 make kind-all
 ```
 
-After the setup completes, you can access the API service in http://localhost:8080 by port-forwarding:
+After the setup completes, you can access the sink service in http://localhost:8080 by port-forwarding:
 ```bash
 make kind-port-forward
 ```
 
-Then access the API at `http://localhost:8080`
+Then access the sink service at `http://localhost:8080`
 
 ### Local Development without Kubernetes
 
 You can also run the services directly on your local machine without Kubernetes:
 
-1. **Start Dependencies** (PostgreSQL and any other required services):
+1. **Start Dependencies**:
    ```bash
-   docker-compose up -d postgres
+   # Start any required services here
    ```
 
 2. **Run Individual Services**:
 
-   - **API Server** (default port 8080):
+   - **Sink**:
      ```bash
-     make run-api
-     # Or with custom port:
-     # API_PORT=3000 make run-api
+     make run-sink
      ```
 
    - **Message Queue Service**:
      ```bash
      make run-mq
-     ```
-
-   - **Telemetry Collector**:
-     ```bash
-     # Set database connection details as needed
-     DB_HOST=localhost DB_PORT=5432 DB_NAME=gputel DB_USER=postgres DB_PASSWORD=postgres make run-collector
      ```
 
    - **Telemetry Streamer**:
@@ -209,13 +188,6 @@ You can also run the services directly on your local machine without Kubernetes:
 3. **Environment Variables**:
    You can customize the services using environment variables. Common variables include:
    ```bash
-   # Database configuration
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=gputel
-   DB_USER=postgres
-   DB_PASSWORD=postgres
-   
    # API server configuration
    API_PORT=8080
    

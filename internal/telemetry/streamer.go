@@ -86,6 +86,8 @@ func (s *Streamer) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.done:
 			return nil
 		case <-ticker.C:
 			// Collect and process telemetry data
@@ -206,7 +208,7 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 
 		// Create telemetry data using the GPUTelemetry struct
 		telemetry := GPUTelemetry{
-			Timestamp:  time.Now(),
+			Timestamp:  time.Now().UTC(),
 			MetricName: metric.MetricName,
 			GPUIndex:   metric.GPUIndex, // Keep as string to match struct
 			Device:     metric.Device,
