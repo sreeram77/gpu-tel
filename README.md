@@ -16,7 +16,7 @@ A high-performance, scalable telemetry pipeline for collecting, processing, and 
 This project consists of several microservices, each with its own documentation:
 
 1. [Message Queue Service (mq-service)](./cmd/mq-service/readme.md) - gRPC-based message queue for reliable communication between services
-2. [Sink](./cmd/sink/readme.md) - Processes and stores GPU telemetry data 
+2. [Sink](./cmd/sink/README.md) - Processes and stores GPU telemetry data 
 3. [Telemetry Streamer](./cmd/telemetry-streamer/readme.md) - Streams telemetry data from CSV to the message queue
 
 ## Architecture
@@ -58,7 +58,7 @@ The system consists of several microservices:
    cd gpu-tel
    ```
 
-2. Build and run services:
+2. Build and run services on kind:
    ```bash
    make kind-all
    ```
@@ -66,6 +66,7 @@ The system consists of several microservices:
    ```bash
    make kind-port-forward
    ```
+   The API server will be available at http://localhost:8080/swagger
 
 ### Configuration
 
@@ -74,6 +75,7 @@ Edit `configs/config.yaml` to configure the services:
 ```yaml
 message_queue:
   address: "localhost:50051"
+  topic: "gpu_metrics"
 ```
 
 ## API Documentation
@@ -100,34 +102,15 @@ Run integration-test:
 make integration-test
 ```
 
-Generate and view test coverage report:
+View total test coverage:
 ```bash
-make test-cover-show
-```
-
-Other test coverage commands:
-```bash
-# Show function coverage
-make test-cover-func
-
-# Show package coverage
-make test-cover-pkg
-
-# Run all coverage checks
 make test-cover-all
 ```
 
-**Note on Test Coverage**:
-The test coverage metrics include generated files (like protocol buffer code and mocks), which may result in lower coverage percentages than actual code coverage. The coverage for hand-written code is typically higher than the reported numbers.
-
-### Running the Sink Service
-
-To run the sink service locally:
-
+Generate and view test coverage report on the browser:
 ```bash
-make run-sink
+make test-cover-show
 ```
-
 
 ## Local Development
 
@@ -163,12 +146,7 @@ Then access the sink service at `http://localhost:8080`
 
 You can also run the services directly on your local machine without Kubernetes:
 
-1. **Start Dependencies**:
-   ```bash
-   # Start any required services here
-   ```
-
-2. **Run Individual Services**:
+1. **Run Individual Services**:
 
    - **Sink**:
      ```bash
@@ -185,7 +163,7 @@ You can also run the services directly on your local machine without Kubernetes:
      make run-streamer
      ```
 
-3. **Environment Variables**:
+2. **Environment Variables**:
    You can customize the services using environment variables. Common variables include:
    ```bash
    # API server configuration
@@ -195,7 +173,7 @@ You can also run the services directly on your local machine without Kubernetes:
    MQ_ADDRESS=localhost:50051
    ```
 
-4. **Verify Services**:
+3. **Verify Services**:
    - API: `http://localhost:8080`
    - Health Check: `http://localhost:8080/health`
 
@@ -230,43 +208,6 @@ If you prefer more control over the setup process, you can run the steps manuall
 - View logs: `make kind-logs`
 - Clean up: `make kind-clean`
 - Delete and recreate the cluster: `make kind-restart`
-
-## Deployment
-
-### Kubernetes with Helm
-
-For deploying to a Kubernetes cluster:
-
-1. Add the Helm repository:
-   ```bash
-   helm repo add bitnami https://charts.bitnami.com/bitnami
-   helm repo update
-   ```
-
-2. Create the namespace:
-   ```bash
-   kubectl create namespace gpu-tel
-   ```
-
-3. Deploy using the included Helm chart:
-   ```bash
-   helm upgrade --install gpu-tel ./deploy/charts/gpu-tel \
-     --namespace gpu-tel \
-     --set postgresql.auth.postgresPassword=postgres \
-     --set postgresql.auth.password=mysecretpassword \
-     --set postgresql.auth.database=gputel
-   ```
-
-4. Check the deployment status:
-   ```bash
-   kubectl get pods -n gpu-tel
-   ```
-
-5. Access the API:
-   ```bash
-   kubectl port-forward -n gpu-tel svc/gpu-tel-api-service 8080:8080
-   ```
-   Then access the API at `http://localhost:8080`
 
 ### Production Deployment
 
