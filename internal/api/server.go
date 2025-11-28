@@ -118,8 +118,8 @@ func (s *Server) registerRoutes() {
 
 	// API Documentation Endpoints
 	// 1. Raw OpenAPI YAML specification
-	s.router.GET("/openapi.yaml", func(c *gin.Context) {
-		c.File("/api/openapi.yaml")
+	s.router.GET("/swagger.json", func(c *gin.Context) {
+		c.File("./api/openapi.yaml")
 	})
 
 	// 2. Swagger UI - SPA for API documentation

@@ -17,6 +17,7 @@ server:
 # Message Queue configuration
 message_queue:
   address: gpu-tel-mq-service:50051
+  topic: gpu_metrics
 
 # Logging configuration
 log:
@@ -32,6 +33,7 @@ telemetry:
   max_queue_size: 1000
 
 collector:
+  topic: gpu_metrics
   batch_size: 100
   max_in_flight: 1000
   ack_timeout_seconds: 30
