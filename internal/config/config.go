@@ -13,10 +13,8 @@ type Config struct {
 	App          AppConfig          `mapstructure:"app"`
 	Server       ServerConfig       `mapstructure:"server"`
 	MessageQueue MessageQueueConfig `mapstructure:"message_queue"`
-	Storage      StorageConfig      `mapstructure:"storage"`
 	Log          LogConfig          `mapstructure:"log"`
 	Telemetry    TelemetryConfig    `mapstructure:"telemetry"`
-	Database     DatabaseConfig     `mapstructure:"database"`
 	Collector    CollectorConfig    `mapstructure:"collector"`
 }
 
@@ -25,15 +23,6 @@ type CollectorConfig struct {
 	MaxInFlight       int `mapstructure:"max_in_flight"`
 	AckTimeoutSeconds int `mapstructure:"ack_timeout_seconds"`
 	WorkerCount       int `mapstructure:"worker_count"`
-}
-
-type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"dbname"`
-	SSLMode  string `mapstructure:"sslmode"`
 }
 
 // AppConfig holds application configuration
@@ -67,22 +56,6 @@ type MessageQueueConfig struct {
 	Address       string `mapstructure:"address"`
 	Topic         string `mapstructure:"topic"`
 	ConsumerGroup string `mapstructure:"consumer_group"`
-}
-
-// StorageConfig holds storage configuration
-type StorageConfig struct {
-	Type     string         `mapstructure:"type"`
-	Postgres PostgresConfig `mapstructure:"postgres"`
-}
-
-// PostgresConfig holds PostgreSQL configuration
-type PostgresConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"dbname"`
-	SSLMode  string `mapstructure:"sslmode"`
 }
 
 // LogConfig holds logging configuration
@@ -167,17 +140,8 @@ func setDefaults(v *viper.Viper) {
 
 	// Message queue defaults
 	v.SetDefault("message_queue.address", "localhost:50051")
-	v.SetDefault("message_queue.topic", "")
+	v.SetDefault("message_queue.topic", "gpu_metrics")
 	v.SetDefault("message_queue.consumer_group", "")
-
-	// Storage defaults
-	v.SetDefault("storage.type", "postgres")
-	v.SetDefault("storage.postgres.host", "localhost")
-	v.SetDefault("storage.postgres.port", 5432)
-	v.SetDefault("storage.postgres.user", "postgres")
-	v.SetDefault("storage.postgres.password", "mysecretpassword")
-	v.SetDefault("storage.postgres.dbname", "gputel")
-	v.SetDefault("storage.postgres.sslmode", "disable")
 
 	// Log defaults
 	v.SetDefault("log.level", "debug")
@@ -190,14 +154,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.batch_size", 100)
 	v.SetDefault("telemetry.max_queue_size", 1000)
 	v.SetDefault("telemetry.metrics_path", "/app/test-data/metrics.csv")
-
-	// Database defaults
-	v.SetDefault("database.host", "localhost")
-	v.SetDefault("database.port", 5432)
-	v.SetDefault("database.user", "gputel")
-	v.SetDefault("database.password", "password")
-	v.SetDefault("database.dbname", "gputel")
-	v.SetDefault("database.sslmode", "disable")
 
 	// Collector defaults
 	v.SetDefault("collector.batch_size", 100)
