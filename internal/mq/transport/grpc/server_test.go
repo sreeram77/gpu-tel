@@ -107,7 +107,7 @@ func TestServer_RunWithError(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			GRPC: config.GRPCServerConfig{
-				Port: 1, // Port 1 is a privileged port
+				Port: -1, // Port 1 is invalid
 			},
 		},
 	}
@@ -117,7 +117,7 @@ func TestServer_RunWithError(t *testing.T) {
 	// Test starting server with invalid port
 	err := server.Start()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to listen on :1")
+	assert.Contains(t, err.Error(), "failed to listen on :-1")
 }
 
 func TestServer_MessageStoreClosure(t *testing.T) {
