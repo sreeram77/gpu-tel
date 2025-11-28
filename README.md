@@ -62,6 +62,10 @@ The system consists of several microservices:
    ```bash
    make kind-all
    ```
+3. Port forward API server:
+   ```bash
+   make kind-port-forward
+   ```
 
 ### Configuration
 
@@ -70,10 +74,6 @@ Edit `configs/config.yaml` to configure the services:
 ```yaml
 message_queue:
   address: "localhost:50051"
-  batch_size: 100
-  max_in_flight: 1000
-  ack_timeout_seconds: 30
-  worker_count: 3
 ```
 
 ## API Documentation
@@ -93,6 +93,11 @@ make build
 Run all tests:
 ```bash
 make test
+```
+
+Run integration-test:
+```bash
+make integration-test
 ```
 
 Generate and view test coverage report:

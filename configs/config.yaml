@@ -18,25 +18,6 @@ server:
 message_queue:
   address: gpu-tel-mq-service:50051
 
-# Storage configuration
-storage:
-  type: postgres # Can be 'memory' or 'postgres'
-  postgres:
-    host: gpu-tel-postgresql
-    port: 5432
-    user: postgres
-    password: mysecretpassword
-    dbname: gputel
-    sslmode: disable
-
-database:
-  host: gpu-tel-postgresql
-  port: 5432
-  user: postgres
-  password: mysecretpassword
-  dbname: gputel
-  sslmode: disable
-
 # Logging configuration
 log:
   level: debug

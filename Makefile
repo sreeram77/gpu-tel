@@ -144,7 +144,7 @@ proto: check-protoc check-protoc-go check-protoc-go-grpc
 	       $(PROTO_DIR)/mq.proto
 
 # Build targets
-build: $(BIN_DIR) $(MQ_SERVICE_BIN) $(STREAMER_BIN) $(COLLECTOR_BIN) $(API_SERVER_BIN)
+build: $(BIN_DIR) $(MQ_SERVICE_BIN) $(STREAMER_BIN) $(SINK_BIN)
 
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
@@ -157,6 +157,9 @@ $(STREAMER_BIN):
 	@echo "Building $@..."
 	@$(GOBUILD_CMD)
 
+$(SINK_BIN):
+	@echo "Building $@..."
+	@$(GOBUILD_CMD)
 
 ## API Server
 deps-api:
