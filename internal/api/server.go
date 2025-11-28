@@ -76,13 +76,6 @@ func (s *Server) Start() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info().Msg("Shutting down server...")
 
-	// Create a deadline to wait for
-	if ctx == nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-	}
-
 	// Shutdown the server
 	if err := s.httpServer.Shutdown(ctx); err != nil {
 		s.logger.Error().Err(err).Msg("Error during server shutdown")

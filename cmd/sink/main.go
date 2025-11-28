@@ -31,7 +31,6 @@ func main() {
 	logger.Info().
 		Str("mq_addr", cfg.MessageQueue.Address).
 		Str("topic", cfg.MessageQueue.Topic).
-		Str("consumer_group", cfg.MessageQueue.ConsumerGroup).
 		Msg("Connecting to message queue")
 
 	// Initialize in-memory storage

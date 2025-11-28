@@ -52,7 +52,7 @@ func clearEnvVars() {
 func TestLoadConfig(t *testing.T) {
 	// Clear environment variables before running tests
 	clearEnvVars()
-	
+
 	// Set an empty config path to prevent loading from default locations
 	os.Setenv("CONFIG_PATH", "/nonexistent")
 	tests := []struct {
@@ -86,16 +86,7 @@ server:
 
 message_queue:
   address: "localhost:9092"
-
-storage:
-  type: "postgres"
-  postgres:
-    host: "localhost"
-    port: 5432
-    user: "testuser"
-    password: "testpass"
-    dbname: "testdb"
-    sslmode: "disable"
+  topic: "gpu_metrics"
 
 log:
   level: "debug"
@@ -109,6 +100,7 @@ telemetry:
   max_queue_size: 1000
 
 collector:
+  topic: "gpu_metrics"
   batch_size: 100
   max_in_flight: 1000
   ack_timeout_seconds: 30
@@ -134,8 +126,8 @@ collector:
 				},
 				Server: ServerConfig{
 					HTTP: HTTPServerConfig{
-						Port:        8080,
-						ReadTimeout: 30 * time.Second,
+						Port:         8080,
+						ReadTimeout:  30 * time.Second,
 						WriteTimeout: 30 * time.Second,
 					},
 					GRPC: GRPCServerConfig{
@@ -145,17 +137,7 @@ collector:
 				},
 				MessageQueue: MessageQueueConfig{
 					Address: "gpu-tel-mq-service:50051",
-				},
-				Storage: StorageConfig{
-					Type: "postgres",
-					Postgres: PostgresConfig{
-						Host:     "gpu-tel-postgresql",
-						Port:     5432,
-						User:     "postgres",
-						Password: "mysecretpassword",
-						DBName:   "gputel",
-						SSLMode:  "disable",
-					},
+					Topic:   "gpu_metrics",
 				},
 				Log: LogConfig{
 					Level:  "debug",
@@ -168,14 +150,6 @@ collector:
 					BatchSize:      100,
 					MaxQueueSize:   1000,
 					MetricsPath:    "/app/test-data/metrics.csv",
-				},
-				Database: DatabaseConfig{
-					Host:     "gpu-tel-postgresql",
-					Port:     5432,
-					User:     "postgres",
-					Password: "mysecretpassword",
-					DBName:   "gputel",
-					SSLMode:  "disable",
 				},
 				Collector: CollectorConfig{
 					BatchSize:         100,
@@ -193,7 +167,7 @@ collector:
 				// Return empty string to indicate no config file
 				return "", func() {}
 			},
-				expected: &Config{
+			expected: &Config{
 				App: AppConfig{
 					Name:    "gpu-tel",
 					Env:     "development",
@@ -201,8 +175,8 @@ collector:
 				},
 				Server: ServerConfig{
 					HTTP: HTTPServerConfig{
-						Port:        8080,
-						ReadTimeout: 30 * time.Second,
+						Port:         8080,
+						ReadTimeout:  30 * time.Second,
 						WriteTimeout: 30 * time.Second,
 					},
 					GRPC: GRPCServerConfig{
@@ -212,17 +186,7 @@ collector:
 				},
 				MessageQueue: MessageQueueConfig{
 					Address: "gpu-tel-mq-service:50051",
-				},
-				Storage: StorageConfig{
-					Type: "postgres",
-					Postgres: PostgresConfig{
-						Host:     "gpu-tel-postgresql",
-						Port:     5432,
-						User:     "postgres",
-						Password: "mysecretpassword",
-						DBName:   "gputel",
-						SSLMode:  "disable",
-					},
+					Topic:   "gpu_metrics",
 				},
 				Log: LogConfig{
 					Level:  "debug",
@@ -235,14 +199,6 @@ collector:
 					BatchSize:      100,
 					MaxQueueSize:   1000,
 					MetricsPath:    "/app/test-data/metrics.csv",
-				},
-				Database: DatabaseConfig{
-					Host:     "gpu-tel-postgresql",
-					Port:     5432,
-					User:     "postgres",
-					Password: "mysecretpassword",
-					DBName:   "gputel",
-					SSLMode:  "disable",
 				},
 				Collector: CollectorConfig{
 					BatchSize:         100,
@@ -297,7 +253,7 @@ func TestEnvironmentVariables(t *testing.T) {
 	// Verify environment variables were used
 	assert.Equal(t, "env-test", cfg.App.Name, "App name should be set from environment variable")
 	assert.Equal(t, "test", cfg.App.Env, "App env should be set from environment variable")
-	
+
 	// These values might be overridden by default config, so we'll just check the ones we set
 	assert.Equal(t, "env-test", cfg.App.Name, "App name should be set from environment variable")
 	assert.Equal(t, "test", cfg.App.Env, "App env should be set from environment variable")
@@ -372,4 +328,28 @@ server:
 	assert.Equal(t, "1.0.0", cfg.App.Version, "App version should match custom config")
 	assert.Equal(t, 9090, cfg.Server.HTTP.Port, "HTTP port should be overridden in custom config")
 	assert.Equal(t, 50052, cfg.Server.GRPC.Port, "gRPC port should be overridden in custom config")
+}
+
+func TestConfigUnmarshalFailure(t *testing.T) {
+	// Create a temporary directory for test config
+	tempDir, err := os.MkdirTemp("", "config-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create a test config file with invalid YAML
+	configPath := filepath.Join(tempDir, "invalid-config.yaml")
+	invalidConfig := `
+hnfijfisjspofksfks
+sdfospofkspofsos3939r39j4fj449j
+`
+	err = os.WriteFile(configPath, []byte(invalidConfig), 0644)
+	require.NoError(t, err)
+
+	// Reset viper to ensure we don't pick up any existing config
+	viper.Reset()
+
+	// Load the config with explicit path
+	_, err = Load(configPath)
+	require.Error(t, err, "Failed to load config from custom path")
+	assert.Contains(t, err.Error(), "failed to read config file")
 }
