@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,10 +14,6 @@ import (
 )
 
 func main() {
-	// Parse command line flags
-	configPath := flag.String("config", "./configs/config.yaml", "path to config file")
-	flag.Parse()
-
 	// Initialize logger
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
@@ -29,7 +24,7 @@ func main() {
 		Logger()
 
 	// Load configuration
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.Load("")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to load config")
 	}

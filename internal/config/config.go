@@ -109,10 +109,6 @@ func Load(configPath string) (*Config, error) {
 		if configPath != "" {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
-		// For default config paths, it's okay if no config file is found
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("error reading config file: %w", err)
-		}
 	}
 
 	// Unmarshal the config into the Config struct

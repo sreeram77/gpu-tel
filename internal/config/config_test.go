@@ -329,3 +329,27 @@ server:
 	assert.Equal(t, 9090, cfg.Server.HTTP.Port, "HTTP port should be overridden in custom config")
 	assert.Equal(t, 50052, cfg.Server.GRPC.Port, "gRPC port should be overridden in custom config")
 }
+
+func TestConfigUnmarshalFailure(t *testing.T) {
+	// Create a temporary directory for test config
+	tempDir, err := os.MkdirTemp("", "config-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create a test config file with invalid YAML
+	configPath := filepath.Join(tempDir, "invalid-config.yaml")
+	invalidConfig := `
+hnfijfisjspofksfks
+sdfospofkspofsos3939r39j4fj449j
+`
+	err = os.WriteFile(configPath, []byte(invalidConfig), 0644)
+	require.NoError(t, err)
+
+	// Reset viper to ensure we don't pick up any existing config
+	viper.Reset()
+
+	// Load the config with explicit path
+	_, err = Load(configPath)
+	require.Error(t, err, "Failed to load config from custom path")
+	assert.Contains(t, err.Error(), "failed to read config file")
+}
