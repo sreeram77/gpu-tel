@@ -139,7 +139,7 @@ func (c *Collector) runSubscriptionLoop(ctx context.Context) error {
 	if podName == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
-			podName = fmt.Sprintf("sink-%s", time.Now().UnixNano())
+			podName = fmt.Sprintf("sink-%d", time.Now().UnixNano())
 		} else {
 			podName = hostname
 		}
@@ -160,7 +160,7 @@ func (c *Collector) runSubscriptionLoop(ctx context.Context) error {
 				}
 				c.logger.Error().Err(err).Msg("Error in subscription loop")
 				// Add a small delay to prevent tight loop on errors
-				time.Sleep(time.Second)
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}

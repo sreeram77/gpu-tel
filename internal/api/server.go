@@ -119,6 +119,11 @@ func (s *Server) registerRoutes() {
 
 	// 2. Swagger UI - SPA for API documentation
 	s.router.Static("/swagger", "/app/swagger")
+
+	// Add redirect from /swagger to /swagger/ to fix 404 issue
+	s.router.GET("/swagger", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/")
+	})
 }
 
 // healthCheck handles the health check endpoint

@@ -16,7 +16,7 @@ A high-performance, scalable telemetry pipeline for collecting, processing, and 
 This project consists of several microservices, each with its own documentation:
 
 1. [Message Queue Service (mq-service)](./cmd/mq-service/readme.md) - gRPC-based message queue for reliable communication between services
-2. [Sink](./cmd/sink/README.md) - Processes and stores GPU telemetry data 
+2. [Sink](./cmd/sink/README.md) - Processes and stores GPU telemetry data. It also exposes HTTP APIs to query the stored data 
 3. [Telemetry Streamer](./cmd/telemetry-streamer/readme.md) - Streams telemetry data from CSV to the message queue
 
 ## Architecture

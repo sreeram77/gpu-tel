@@ -65,6 +65,8 @@ func main() {
 		}
 	}()
 
+	time.Sleep(5 * time.Second)
+
 	// Start the collector
 	if err := collector.Start(ctx); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start collector")
