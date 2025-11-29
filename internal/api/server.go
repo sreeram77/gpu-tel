@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,6 +32,8 @@ func NewServer(logger zerolog.Logger, storage telemetry.TelemetryStorage) *Serve
 	}
 
 	srv.router = gin.New()
+	srv.router.RedirectTrailingSlash = true
+
 	srv.router.Use(
 		gin.Recovery(),
 		requestLogger(logger),
@@ -86,13 +86,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// setupSignalHandler sets up signal handling for graceful shutdown
-func (s *Server) setupSignalHandler() <-chan os.Signal {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	return quit
-}
-
 // registerRoutes registers all API routes
 func (s *Server) registerRoutes() {
 	// Health check
@@ -117,6 +110,11 @@ func (s *Server) registerRoutes() {
 
 	// 2. Swagger UI - SPA for API documentation
 	s.router.Static("/swagger", "/app/swagger")
+
+	// Add redirect from /swagger to /swagger/ to fix 404 issue
+	s.router.GET("/swagger", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/")
+	})
 }
 
 // healthCheck handles the health check endpoint

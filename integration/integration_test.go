@@ -35,9 +35,13 @@ func TestIntegration(t *testing.T) {
 	mqCmd := startService(t, "mq-service", mqGRPCPort, fmt.Sprintf("--config=%s", configPath))
 	defer stopService(t, mqCmd)
 
+	time.Sleep(3 * time.Second)
+
 	// Start sink service
 	sinkCmd := startService(t, "sink", apiHTTPPort, fmt.Sprintf("--config=%s", configPath))
 	defer stopService(t, sinkCmd)
+
+	time.Sleep(3 * time.Second)
 
 	// Start telemetry streamer
 	streamerCmd := startService(t, "telemetry-streamer", 0, fmt.Sprintf("--config=%s", configPath))
@@ -92,11 +96,11 @@ func TestIntegration(t *testing.T) {
 
 		// If there are GPUs, test getting telemetry for the first one
 		if len(gpus) > 0 {
-			gpuID := gpus[0]["id"].(string)
+			gpuID := gpus[0]["uuid"].(string)
 			t.Logf("Testing telemetry for GPU: %s", gpuID)
 
 			// Test getting telemetry with time range
-			now := time.Now()
+			now := time.Now().UTC()
 			start := now.Add(-5 * time.Minute).Format(time.RFC3339)
 			end := now.Format(time.RFC3339)
 
@@ -151,7 +155,7 @@ func startService(t *testing.T, name string, port int, args string) *exec.Cmd {
 	}
 
 	// Set environment variables
-	cmd.Env = append(os.Environ(), 
+	cmd.Env = append(os.Environ(),
 		"CONFIG_PATH="+configPath,
 	)
 

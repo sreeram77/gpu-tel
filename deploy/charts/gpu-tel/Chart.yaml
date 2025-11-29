@@ -7,18 +7,10 @@ type: application
 
 # Dependencies for subcharts
 dependencies:
-  - name: api-server
-    version: 0.1.0
-    repository: file://./charts/api-server
-    condition: subcharts.api-server.enabled
   - name: mq-service
     version: 0.1.0
     repository: file://./charts/mq-service
     condition: subcharts.mq-service.enabled
-  - name: telemetry-collector
-    version: 0.1.0
-    repository: file://./charts/telemetry-collector
-    condition: subcharts.telemetry-collector.enabled
   - name: telemetry-streamer
     version: 0.1.0
     repository: file://./charts/telemetry-streamer

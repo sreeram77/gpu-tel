@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -33,15 +34,20 @@ type GPUMetric struct {
 	Labels     string    `json:"labels_raw"`
 }
 
-// Streamer implements the TelemetryStreamer interface
+// Streamer implements the TelemetryStreamer interface.
+// The Streamer is not safe for concurrent use across multiple goroutines.
+// The Start() method should only be called once per Streamer instance.
 type Streamer struct {
 	logger     zerolog.Logger
 	config     *Config
-	metrics    []GPUMetric
-	currentIdx int
 	mqClient   mqpb.PublisherServiceClient
 	conn       *grpc.ClientConn
 	done       chan struct{}
+	
+	// mu protects the following fields
+	mu         sync.RWMutex
+	metrics    []GPUMetric
+	currentIdx int
 }
 
 // Config holds configuration for the Streamer
@@ -107,10 +113,6 @@ func (s *Streamer) Stop() error {
 
 // loadMetrics loads metrics from the CSV file
 func (s *Streamer) loadMetrics() error {
-	if s.config.MetricsPath == "" {
-		s.config.MetricsPath = "./test-data/metrics.csv"
-	}
-
 	// Get the absolute path to the metrics file
 	metricsPath := s.config.MetricsPath
 
@@ -173,6 +175,9 @@ func (s *Streamer) loadMetrics() error {
 
 // collectAndProcess collects and processes a batch of metrics
 func (s *Streamer) collectAndProcess(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Lazy load metrics on first run
 	if s.metrics == nil {
 		if err := s.loadMetrics(); err != nil {
@@ -192,7 +197,9 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 		endIdx = len(s.metrics)
 	}
 
-	batch := s.metrics[s.currentIdx:endIdx]
+	// Create a copy of the batch to work with while holding the lock for minimal time
+	batch := make([]GPUMetric, endIdx-s.currentIdx)
+	copy(batch, s.metrics[s.currentIdx:endIdx])
 	s.currentIdx = endIdx
 
 	// Create a stream to the message queue
@@ -257,10 +264,4 @@ func (s *Streamer) collectAndProcess(ctx context.Context) {
 		Int("batch_size", len(batch)).
 		Int("total_metrics", len(s.metrics)).
 		Msg("Processed telemetry batch")
-}
-
-// Helper function to convert string to int, returns 0 on error
-func mustAtoi(s string) int {
-	i, _ := strconv.Atoi(s)
-	return i
 }

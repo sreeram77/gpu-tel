@@ -14,9 +14,11 @@ mqService:
   port: 5672
 
 # Additional environment variables
-env: []
-  # - name: ENV_VAR_NAME
-  #   value: value
+env:
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
 
 resources: {}
   # limits:

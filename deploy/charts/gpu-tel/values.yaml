@@ -34,31 +34,12 @@ global:
 
 # Subchart configurations
 subcharts:
-  api-server:
-    enabled: false
-    replicaCount: 1
-    service:
-      type: ClusterIP
-      port: 8080
-    serviceAccount:
-      create: true
-    monitoring:
-      enabled: true
-      path: /metrics
-    resources:
-      requests:
-        cpu: 200m
-        memory: 256Mi
-      limits:
-        cpu: 1000m
-        memory: 1Gi
-
   mq-service:
     enabled: true
     replicaCount: 1
     service:
       type: ClusterIP
-      port: 5672  # Default AMQP port
+      port: 5672
     serviceAccount:
       create: true
     persistence:
@@ -72,25 +53,6 @@ subcharts:
       limits:
         cpu: 500m
         memory: 512Mi
-
-  telemetry-collector:
-    enabled: false
-    replicaCount: 1
-    service:
-      type: ClusterIP
-      port: 8081
-    serviceAccount:
-      create: true
-    monitoring:
-      enabled: true
-      path: /metrics
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 256Mi
 
   telemetry-streamer:
     enabled: true
