@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -86,13 +84,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	s.logger.Info().Msg("Server stopped")
 	return nil
-}
-
-// setupSignalHandler sets up signal handling for graceful shutdown
-func (s *Server) setupSignalHandler() <-chan os.Signal {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	return quit
 }
 
 // registerRoutes registers all API routes

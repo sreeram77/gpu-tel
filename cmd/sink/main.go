@@ -95,11 +95,7 @@ func main() {
 		logger.Error().Err(err).Msg("Error during collector shutdown")
 	}
 
-	// Wait for all goroutines to finish or timeout
-	select {
-	case <-shutdownCtx.Done():
-		logger.Warn().Msg("Shutdown timed out, forcing exit")
-	}
+	<-shutdownCtx.Done()
 
 	logger.Info().Msg("Shutdown complete")
 }

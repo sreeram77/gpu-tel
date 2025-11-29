@@ -212,6 +212,11 @@ func (c *Collector) processSubscription(ctx context.Context, consumerID string) 
 				continue
 			}
 
+			// Log the received messages
+			c.logger.Info().
+				Int("batch_size", len(resp.Messages)).
+				Msg("Received batch of messages")
+
 			startTime := time.Now()
 			batchSize := len(resp.Messages)
 
